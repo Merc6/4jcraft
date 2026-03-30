@@ -58,7 +58,7 @@ jobs:
         run: mkdir -p $CCACHE_DIR
 
       - name: Build meson (release)
-        uses: ./.githubiworkflows/composite/build-meson.yml
+        uses: ./.github/workflows/composite/build-meson.yml
         with:
           dir_name: "build_release"
           setup_args: "--buildtype=release"
