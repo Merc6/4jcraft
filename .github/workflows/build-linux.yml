@@ -2,8 +2,13 @@ name: Build (Linux, x86-64)
 
 # TODO: test with only pull-request
 on:
+<<<<<<< HEAD
   push:
     paths: &workflow_paths
+=======
+  [push, pull-request]:
+    paths:
+>>>>>>> a790f1af (make `build-linux` use `flake.nix`)
       - "**.cppm"
       - "**.ixx"
       - "**.inl"
@@ -12,6 +17,11 @@ on:
       - "**.tpp"
       - "**.txx"
       - "**.inc"
+<<<<<<< HEAD
+=======
+      - "**.c++"
+      - "**.h++"
+>>>>>>> a790f1af (make `build-linux` use `flake.nix`)
       - "**.cpp"
       - "**.hpp"
       - "**.cxx"
@@ -24,8 +34,12 @@ on:
       - "**/meson.build"
       - "flake.nix"
 
-  pull_request:
-    paths: *workflow_paths
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ !contains(github.ref, 'dev/') }}
+
+env:
+  CCACHE_DIR: ${{ runner.temp }}/ccache
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -41,15 +55,14 @@ jobs:
           fetch-depth: 1
 
       - name: Enter dev-shell
-        uses: ./.github/actions/enter-devshell
+        uses: ./.github/workflows/composite/enter-devshell.yml
 
       - name: Restore build cache
-        uses: ./.github/actions/restore-cache
-        with:
-          ccache_dir: ${{ runner.temp }}/ccache
+        uses: ./.github/workflows/composite/restore-cache.yml
+        run: mkdir -p $CCACHE_DIR
 
       - name: Build meson (release)
-        uses: ./.github/actions/build-meson
+        uses: ./.githubiworkflows/composite/build-meson.yml
         with:
           dir_name: "build_release"
           setup_args: "--buildtype=release"
@@ -63,15 +76,14 @@ jobs:
           fetch-depth: 1
 
       - name: Enter dev-shell
-        uses: ./.github/actions/enter-devshell
+        uses: ./.github/workflows/composite/enter-devshell.yml
 
       - name: Restore build cache
-        uses: ./.github/actions/restore-cache
-        with:
-          ccache_dir: ${{ runner.temp }}/ccache
+        uses: ./.github/workflows/composite/restore-cache.yml
+        run: mkdir -p $CCACHE_DIR
 
       - name: Build meson (debug)
-        uses: ./.github/actions/build-meson
+        uses: ./.github/workflows/composite/build-meson.yml
         with:
           dir_name: "build_debug"
           setup_args: "--buildtype=debug"
