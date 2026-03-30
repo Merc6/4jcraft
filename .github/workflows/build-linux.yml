@@ -1,79 +1,77 @@
 name: Build (Linux, x86-64)
 
+# TODO: test with only pull-request
 on:
-  push:
-    paths: &workflow_paths
-      - '**.cpp'
-      - '**.h'
-      - '**.c'
-      - '**.cc'
-      - '**.cxx'
-      - '**.hh'
-      - '**.hpp'
-      - '**.hxx'
-      - '**.inl'
-      - "**meson.build"
+  [push, pull-request]:
+    paths:
+      - "**.cppm"
+      - "**.ixx"
+      - "**.inl"
+      - "**.mpp"
+      - "**.ipp"
+      - "**.tpp"
+      - "**.txx"
+      - "**.inc"
+      - "**.c++"
+      - "**.h++"
+      - "**.cpp"
+      - "**.hpp"
+      - "**.cxx"
+      - "**.hxx"
+      - "**.cc"
+      - "**.hh"
+      - "**.c"
+      - "**.h"
+      - ".github/workflows/build-linux.yml"
+      - "**/meson.build"
       - "flake.nix"
-      - '.github/workflows/build-linux.yml'
 
-  pull_request:
-    paths: *workflow_paths
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ !contains(github.ref, 'dev/') }}
+
+env:
+  CCACHE_DIR: ${{ runner.temp }}/ccache
 
 jobs:
-  build-linux:
+  build-linux-release:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v6
-
-      - name: Install system dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y build-essential ccache python3 python3-pip ninja-build libsdl2-dev libgl-dev libglu1-mesa-dev libpthread-stubs0-dev libglm-dev
-          python -m pip install meson
-          # Set a reasonable ccache size
-          ccache -M 5G || true
-          python -m pip install meson
-
-      - name: Restore ccache
-        uses: actions/cache@v4
+      - uses: actions/checkout@v6
         with:
-          path: ~/.ccache
-          key: ${{ runner.os }}-ccache-${{ hashFiles('**/meson.build') }}
+          fetch-depth: 1
 
-      - name: Restore meson cache
-        uses: actions/cache@v4
+      - name: Enter dev-shell
+        uses: ./.github/workflows/composite/enter-devshell.yml
+
+      - name: Restore build cache
+        uses: ./.github/workflows/composite/restore-cache.yml
+        run: mkdir -p $CCACHE_DIR
+
+      - name: Build meson (release)
+        uses: ./.githubiworkflows/composite/build-meson.yml
         with:
-          path: ~/.cache/meson
-          key: ${{ runner.os }}-meson-${{ hashFiles('**/meson.build') }}
+          dir_name: "build_release"
+          setup_args: "--buildtype=release"
 
-      - name: Configure Meson
-        env:
-          CC: "ccache clang"
-          CXX: "ccache clang++"
-          CCACHE_DIR: ${{ runner.temp }}/ccache
-        run: |
-          mkdir -p "$CCACHE_DIR"
-          export CCACHE_DIR="$CCACHE_DIR"
-          meson setup build --wipe --native-file=./scripts/llvm_native.txt
+  build-linux-debug:
+    runs-on: ubuntu-latest
 
-      - name: Build with Meson
-        env:
-          CC: "ccache clang"
-          CXX: "ccache clang++"
-          CCACHE_DIR: ${{ runner.temp }}/ccache
-        run: |
-          export CCACHE_DIR="${{ runner.temp }}/ccache"
-          # Use all available cores for faster parallel builds
-          meson compile -C build -j $(nproc) -v Minecraft.Client
-
-      - name: Install patchelf
-        run: sudo apt-get install -y patchelf
-
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
+    steps:
+      - uses: actions/checkout@v6
         with:
-          name: minecraft-client-linux-${{ github.sha }}
-          path: build/Minecraft.Client/Minecraft.Client
-          retention-days: 7
+          fetch-depth: 1
+
+      - name: Enter dev-shell
+        uses: ./.github/workflows/composite/enter-devshell.yml
+
+      - name: Restore build cache
+        uses: ./.github/workflows/composite/restore-cache.yml
+        run: mkdir -p $CCACHE_DIR
+
+      - name: Build meson (debug)
+        uses: ./.github/workflows/composite/build-meson.yml
+        with:
+          dir_name: "build_debug"
+          setup_args: "--buildtype=debug"

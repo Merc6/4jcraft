@@ -1,0 +1,18 @@
+on: workflow_call
+
+jobs:
+  restore-build-cache:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Restore ccache cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.ccache
+          key: ${{ runner.os }}-ccache-${{ hashFiles("**/meson.build") }}
+
+      - name: Restore meson cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/meson
+          key: ${{ runner.os }}-meson-${{ hashFiles("**/meson.build") }}
