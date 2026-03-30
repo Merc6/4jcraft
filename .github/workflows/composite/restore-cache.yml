@@ -1,27 +1,26 @@
-on:
-  workflow_call:
-    inputs:
-      ccache_dir:
-        description: "The directory used by ccache"
-        required: true
-        type: string
+name: "Restore cache"
+description: "Restores the cache for ccache and Meson"
 
-jobs:
-  restore-build-cache:
-    runs-on: ubuntu-latest
+inputs:
+  ccache_dir:
+    description: "The directory used by ccache"
+    required: true
+    type: string
 
-    steps:
-      - name: Restore ccache cache
-        uses: actions/cache@v4
-        with:
-          path: ~/.ccache
-          key: ${{ runner.os }}-ccache-${{ hashFiles("**/meson.build") }}
+runs:
+  using: "composite"
+  steps:
+    - name: Restore ccache cache
+      uses: actions/cache@v4
+      with:
+        path: ~/.ccache
+        key: ${{ runner.os }}-ccache-${{ hashFiles("**/meson.build") }}
 
-      - name: Create ccache dir
-        run: mkdir -p {{ inputs.ccache_dir }}
+    - name: Create ccache dir
+      run: mkdir -p {{ inputs.ccache_dir }}
 
-      - name: Restore meson cache
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/meson
-          key: ${{ runner.os }}-meson-${{ hashFiles("**/meson.build") }}
+    - name: Restore meson cache
+      uses: actions/cache@v4
+      with:
+        path: ~/.cache/meson
+        key: ${{ runner.os }}-meson-${{ hashFiles("**/meson.build") }}

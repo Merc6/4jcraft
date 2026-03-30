@@ -49,7 +49,7 @@ jobs:
           ccache_dir: ${{ runner.temp }}/ccache
 
       - name: Build meson (release)
-        uses: ./.github/workflows/composite/build-meson
+        uses: ./.github/workflows/build-meson
         with:
           dir_name: "build_release"
           setup_args: "--buildtype=release"
@@ -71,7 +71,7 @@ jobs:
           ccache_dir: ${{ runner.temp }}/ccache
 
       - name: Build meson (debug)
-        uses: ./.github/workflows/composite/build-meson
+        uses: ./.github/workflows/build-meson
         with:
           dir_name: "build_debug"
           setup_args: "--buildtype=debug"

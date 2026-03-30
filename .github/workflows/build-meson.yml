@@ -1,21 +1,22 @@
-on:
-  workflow_call:
-    inputs:
-      dir_name:
-        description: "The name of the directory to setup meson in"
-        required: true
-        type: string
+name: "Build Meson"
+description: "Builds the project using Meson"
 
-      setup_args:
-        description: "The args to additionally pass to meson"
-        required: false
-        type: string
+inputs:
+  dir_name:
+    description: "The name of the directory to setup meson in"
+    required: true
+    type: string
 
-      upload:
-        description: "Upload the executable"
-        required: false
-        default: true
-        type: boolean
+  setup_args:
+    description: "The args to additionally pass to meson"
+    required: false
+    type: string
+
+  upload:
+    description: "Upload the executable"
+    required: false
+    default: true
+    type: boolean
 
 jobs:
   compile-meson:
