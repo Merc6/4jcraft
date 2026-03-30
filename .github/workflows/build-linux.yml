@@ -33,12 +33,11 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: ${{ !contains(github.ref, 'dev/') }}
 
-env:
-  CCACHE_DIR: ${{ RUNNER_TEMP }}/ccache
-
 jobs:
   build-linux-release:
     runs-on: ubuntu-latest
+    env:
+      CCACHE_DIR: ${{ runner.temp }}/ccache
 
     steps:
       - uses: actions/checkout@v6
@@ -61,6 +60,8 @@ jobs:
 
   build-linux-debug:
     runs-on: ubuntu-latest
+    env:
+      CCACHE_DIR: ${{ runner.temp }}/ccache
 
     steps:
       - uses: actions/checkout@v6
