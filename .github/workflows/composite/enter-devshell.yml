@@ -1,15 +1,14 @@
-on: workflow_call
+name: "Enter Nix dev-shell"
+description: "Enters a Nix dev-shell"
 
-jobs:
-  enter-devshell:
-    runs-on: ubuntu-latest
+runs:
+  using: "composite"
+  steps:
+    - name: Install Nix
+      uses: cachix/install-nix-action@v31
 
-    steps:
-      - name: Install Nix
-        uses: cachix/install-nix-action@v31
+    - name: Verify flake integrity
+      run: nix flake check
 
-      - name: Verify flake integrity
-        run: nix flake check
-
-      - name: Enter Nix dev-shell
-        run: nix develop
+    - name: Enter Nix dev-shell
+      run: nix develop
