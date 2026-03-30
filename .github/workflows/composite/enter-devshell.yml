@@ -1,0 +1,15 @@
+on: workflow_call
+
+jobs:
+  enter-devshell:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Install Nix
+        uses: cachix/install-nix-action@v31
+
+      - name: Verify flake integrity
+        run: nix flake check
+
+      - name: Enter Nix dev-shell
+        run: nix develop
