@@ -14,14 +14,13 @@ runs:
       uses: actions/cache@v4
       with:
         path: ~/.ccache
-        key: ${{ runner.os }}-ccache-${{ hashFiles('**/meson.build') }}
+        key: ${{ runner.os }}-ccache-${{ hashFiles("**/meson.build") }}
 
     - name: Create ccache dir
-      shell: bash
       run: mkdir -p {{ inputs.ccache_dir }}
 
     - name: Restore meson cache
       uses: actions/cache@v4
       with:
         path: ~/.cache/meson
-        key: ${{ runner.os }}-meson-${{ hashFiles('**/meson.build') }}
+        key: ${{ runner.os }}-meson-${{ hashFiles("**/meson.build") }}
