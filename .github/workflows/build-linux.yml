@@ -1,84 +1,79 @@
 name: Build (Linux, x86-64)
 
+# TODO: test with only pull-request
 on:
-  push:
-    paths: &workflow_paths
-      - '**.cpp'
-      - '**.h'
-      - '**.c'
-      - '**.cc'
-      - '**.cxx'
-      - '**.hh'
-      - '**.hpp'
-      - '**.hxx'
-      - '**.inl'
-      - "**meson.build"
+  [push, pull-request]:
+    paths:
+      - "**.cppm"
+      - "**.ixx"
+      - "**.inl"
+      - "**.mpp"
+      - "**.ipp"
+      - "**.tpp"
+      - "**.txx"
+      - "**.inc"
+      - "**.c++"
+      - "**.h++"
+      - "**.cpp"
+      - "**.hpp"
+      - "**.cxx"
+      - "**.hxx"
+      - "**.cc"
+      - "**.hh"
+      - "**.c"
+      - "**.h"
+      - ".github/workflows/build-linux.yml"
+      - "**/meson.build"
       - "flake.nix"
-      - '.github/workflows/build-linux.yml'
 
-  pull_request:
-    paths: *workflow_paths
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ !contains(github.ref, 'dev/') }}
+
+env:
+  CCACHE_DIR: ${{ runner.temp }}/ccache
 
   workflow_dispatch:
 
 jobs:
-  build-linux:
+  build-linux-release:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Restore .git folder
-        uses: actions/cache@v5
+      - uses: actions/checkout@v6
         with:
-          path: .git
-          key: ${{ runner.os }}-git-${{ github.sha }}
-          restore-keys: ${{ runner.os }}-git-
+          fetch-depth: 1
 
-      - name: Checkout repository
-        uses: actions/checkout@v6
+      - name: Enter dev-shell
+        uses: ./.github/workflows/composite/enter-devshell.yml
 
-      - name: Install system dependencies
-        uses: awalsh128/cache-apt-pkgs-action@latest
+      - name: Restore build cache
+        uses: ./.github/workflows/composite/restore-cache.yml
+        run: mkdir -p $CCACHE_DIR
+
+      - name: Build meson (release)
+        uses: ./.githubiworkflows/composite/build-meson.yml
         with:
-          packages: build-essential ccache meson ninja-build libsdl2-dev libgl-dev libglu1-mesa-dev libpthread-stubs0-dev libglm-dev
-          version: 1.0
-        
-      - name: Install LLVM + libc++
-        run: |
-          wget -qO- https://apt.llvm.org/llvm.sh | sudo bash -s -- 20
-          sudo apt-get install -y libc++-20-dev libc++abi-20-dev
+          dir_name: "build_release"
+          setup_args: "--buildtype=release"
 
-      - name: Restore ccache
-        uses: actions/cache@v5
+  build-linux-debug:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v6
         with:
-          path: ${{ runner.temp }}/ccache
-          key: ${{ runner.os }}-ccache-${{ hashFiles('**/meson.build') }}
-          restore-keys: ${{ runner.os }}-ccache-
+          fetch-depth: 1
 
-      - name: Configure Meson
-        env:
-          CC: "ccache clang"
-          CXX: "ccache clang++"
-          CC_LD: lld
-          CXX_LD: lld
-        run: |
-          meson setup build --native-file=scripts/llvm_native.txt -Dunity=off --wipe
-          meson setup build_unity --native-file=scripts/llvm_native.txt -Dunity=on -Dunity_size=99999 --wipe
+      - name: Enter dev-shell
+        uses: ./.github/workflows/composite/enter-devshell.yml
 
-      - name: Compile (-Dunity=on)
-        env:
-          CCACHE_DIR: ${{ runner.temp }}/ccache
-        run: |
-          meson compile -C build_unity -j $(nproc) -v Minecraft.Client
+      - name: Restore build cache
+        uses: ./.github/workflows/composite/restore-cache.yml
+        run: mkdir -p $CCACHE_DIR
 
-      - name: Compile (-Dunity=off)
-        env:
-          CCACHE_DIR: ${{ runner.temp }}/ccache
-        run: |
-          meson compile -C build -j $(nproc) -v Minecraft.Client
-
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
+      - name: Build meson (debug)
+        uses: ./.github/workflows/composite/build-meson.yml
         with:
-          name: minecraft-client-linux-${{ github.sha }}
-          path: build/targets/app/Minecraft.Client
-          retention-days: 7
+          dir_name: "build_debug"
+          setup_args: "--buildtype=debug"
