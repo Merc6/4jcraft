@@ -3,9 +3,8 @@ name: Build (Linux, x86-64)
 # TODO: test with only pull-request
 on:
 <<<<<<< HEAD
-  [push, pull_request]:
-    paths:
->>>>>>> a790f1af (make `build-linux` use `flake.nix`)
+  push:
+    paths: &workflow_paths
       - "**.cppm"
       - "**.ixx"
       - "**.inl"
@@ -27,6 +26,9 @@ on:
       - ".github/workflows/build-linux.yml"
       - "**/meson.build"
       - "flake.nix"
+
+  pull_request:
+    paths: *workflow_paths
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
