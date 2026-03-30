@@ -41,15 +41,15 @@ jobs:
           fetch-depth: 1
 
       - name: Enter dev-shell
-        uses: ./.github/workflows/composite/enter-devshell
+        uses: ./.github/actions/enter-devshell
 
       - name: Restore build cache
-        uses: ./.github/workflows/composite/restore-cache
+        uses: ./.github/actions/restore-cache
         with:
           ccache_dir: ${{ runner.temp }}/ccache
 
       - name: Build meson (release)
-        uses: ./.github/workflows/build-meson
+        uses: ./.github/actions/build-meson
         with:
           dir_name: "build_release"
           setup_args: "--buildtype=release"
@@ -63,15 +63,15 @@ jobs:
           fetch-depth: 1
 
       - name: Enter dev-shell
-        uses: ./.github/workflows/composite/enter-devshell
+        uses: ./.github/actions/enter-devshell
 
       - name: Restore build cache
-        uses: ./.github/workflows/composite/restore-cache
+        uses: ./.github/actions/restore-cache
         with:
           ccache_dir: ${{ runner.temp }}/ccache
 
       - name: Build meson (debug)
-        uses: ./.github/workflows/build-meson
+        uses: ./.github/actions/build-meson
         with:
           dir_name: "build_debug"
           setup_args: "--buildtype=debug"
