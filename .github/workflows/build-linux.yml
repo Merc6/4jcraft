@@ -2,7 +2,7 @@ name: Build (Linux, x86-64)
 
 # TODO: test with only pull-request
 on:
-  [push, pull-request]:
+  [push, pull_request]:
     paths:
       - "**.cppm"
       - "**.ixx"
