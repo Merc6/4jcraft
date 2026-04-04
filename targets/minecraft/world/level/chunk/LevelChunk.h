@@ -50,27 +50,27 @@ protected:
 public:
     static bool touchedSky;
 
-    static const int BLOCKS_LENGTH = Level::CHUNK_TILE_COUNT;  // 4J added
-    static const int sTerrainPopulatedFromHere = 2;
-    static const int sTerrainPopulatedFromW = 4;
-    static const int sTerrainPopulatedFromS = 8;
-    static const int sTerrainPopulatedFromSW = 16;
+    static constexpr int BLOCKS_LENGTH = Level::CHUNK_TILE_COUNT;  // 4J added
+    static constexpr int sTerrainPopulatedFromHere = 2;
+    static constexpr int sTerrainPopulatedFromW = 4;
+    static constexpr int sTerrainPopulatedFromS = 8;
+    static constexpr int sTerrainPopulatedFromSW = 16;
 
     // All the post-processing that can actually place tiles in this
     // chunk are complete
-    static const int sTerrainPopulatedAllAffecting = 30;
-    static const int sTerrainPopulatedFromNW = 32;
-    static const int sTerrainPopulatedFromN = 64;
-    static const int sTerrainPopulatedFromNE = 128;
-    static const int sTerrainPopulatedFromE = 256;
-    static const int sTerrainPopulatedFromSE = 512;
+    static constexpr int sTerrainPopulatedAllAffecting = 30;
+    static constexpr int sTerrainPopulatedFromNW = 32;
+    static constexpr int sTerrainPopulatedFromN = 64;
+    static constexpr int sTerrainPopulatedFromNE = 128;
+    static constexpr int sTerrainPopulatedFromE = 256;
+    static constexpr int sTerrainPopulatedFromSE = 512;
 
     // The post-processing passes of all neighbours to this chunk are complete
-    static const int sTerrainPopulatedAllNeighbours = 1022;
+    static constexpr int sTerrainPopulatedAllNeighbours = 1022;
 
     // This chunk has been post-post-processed, which is only done when all
     // neighbours have been post-processed
-    static const int sTerrainPostPostProcessed = 1024;
+    static constexpr int sTerrainPostPostProcessed = 1024;
 
     const int ENTITY_BLOCKS_LENGTH;
 
