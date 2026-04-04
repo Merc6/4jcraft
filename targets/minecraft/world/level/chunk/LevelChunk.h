@@ -2,6 +2,7 @@
 
 #include <stdint.h>
 
+#include <cstdint>
 #include <format>
 #include <memory>
 #include <mutex>
@@ -41,157 +42,69 @@ class LevelChunk {
     friend class TileCompressData_SPU;
     friend class LevelRenderer;
 
-public:
-    std::vector<uint8_t> biomes;  // 4J Stu - Made public
-
-    // 4J Stu - No longer static in 1.8.2
-    const int ENTITY_BLOCKS_LENGTH;
-    static const int BLOCKS_LENGTH = Level::CHUNK_TILE_COUNT;  // 4J added
-
-    static bool touchedSky;
-
-    enum EColumnFlag {
-        eColumnFlag_recheck = 1,
-        eColumnFlag_biomeOk = 2,
-        eColumnFlag_biomeHasSnow = 4,
-        eColumnFlag_biomeHasRain = 8,
-    };
-
-    //    std::vector<uint8_t> blocks;
-    // 4J - actual storage for blocks is now private with public methods to
-    // access it
-private:
-    CompressedTileStorage* lowerBlocks;  // 0 - 127
-    CompressedTileStorage* upperBlocks;  // 128 - 255
-public:
-    bool isRenderChunkEmpty(int y);
-    void setBlockData(
-        std::vector<uint8_t>& data);  // Set block data to that passed in in
-                                      // the input array of size 32768
-    void getBlockData(std::vector<uint8_t>&
-                          data);  // Sets data in passed in array of size 32768,
-                                  // from the block data in this chunk
-    int getBlocksAllocatedSize(int* count0, int* count1, int* count2,
-                               int* count4, int* count8);
-
-    bool loaded;
-    unsigned char
-        rainHeights[16 * 16];  // 4J - optimisation brought forward from 1.8.2
-                               // (was int arrayb in java though)
-    unsigned char columnFlags[16 * 8];  // 4J - lighting update brought forward
-                                        // from 1.8.2, was a bool array but now
-                                        // mixed with other flags in our
-                                        // version, and stored in nybbles
-    Level* level;
-
-    // 4J - actual storage for data is now private with public methods to access
-    // it
-private:
-    SparseDataStorage* lowerData;  // 0 - 127
-    SparseDataStorage* upperData;  // 128 - 255
-public:
-    void setDataData(
-        std::vector<uint8_t>& data);  // Set data to that passed in in the
-                                      // input array of size 32768
-    void getDataData(
-        std::vector<uint8_t>& data);  // Sets data in passed in array of size
-                                      // 16384, from the data in this chunk
-
-    //    DataLayer *data;
-private:
-    // 4J - actual storage for sky & block lights is now private with new
-    // methods to be able to access it.
-
-    SparseLightStorage* lowerSkyLight;    // 0 - 127
-    SparseLightStorage* upperSkyLight;    // 128 - 255
-    SparseLightStorage* lowerBlockLight;  // 0 - 127
-    SparseLightStorage* upperBlockLight;  // 128 - 255
-public:
-    void getSkyLightData(
-        std::vector<uint8_t>&
-            data);  // Get a byte array of length 16384 ( 128 x 16 x 16 x 0.5 ),
-                    // containing sky light data. Ordering same as java version.
-    void getBlockLightData(
-        std::vector<uint8_t>&
-            data);  // Get a byte array of length 16384 ( 128 x 16 x 16 x
-                    // 0.5 ), containing block light data. Ordering same
-                    // as java version.
-    void setSkyLightData(
-        std::vector<uint8_t>&
-            data);  // Set sky light data to data passed in input byte
-                    // array of length 16384. This data must be in
-                    // original (java version) order
-    void setBlockLightData(
-        std::vector<uint8_t>&
-            data);  // Set block light data to data passed in input byte
-                    // array of length 16384. This data must be in
-                    // original (java version) order
-    void setSkyLightDataAllBright();  // Set sky light data to be all fully lit
-    bool isLowerBlockStorageCompressed();
-    int isLowerBlockLightStorageCompressed();
-    int isLowerDataStorageCompressed();
-
-    void writeCompressedBlockData(DataOutputStream* dos);
-    void writeCompressedDataData(DataOutputStream* dos);
-    void writeCompressedSkyLightData(DataOutputStream* dos);
-    void writeCompressedBlockLightData(DataOutputStream* dos);
-
-    void readCompressedBlockData(DataInputStream* dis);
-    void readCompressedDataData(DataInputStream* dis);
-    void readCompressedSkyLightData(DataInputStream* dis);
-    void readCompressedBlockLightData(DataInputStream* dis);
-
-    std::vector<uint8_t> heightmap;
-    int minHeight;
-    int x, z;
-
-private:
-    bool hasGapsToCheck;
-
-public:
-    std::unordered_map<TilePos, std::shared_ptr<TileEntity>, TilePosKeyHash,
-                       TilePosKeyEq>
-        tileEntities;
-    std::vector<std::shared_ptr<Entity> >** entityBlocks;
-
-    static const int sTerrainPopulatedFromHere = 2;
-    static const int sTerrainPopulatedFromW = 4;
-    static const int sTerrainPopulatedFromS = 8;
-    static const int sTerrainPopulatedFromSW = 16;
-    static const int sTerrainPopulatedAllAffecting =
-        30;  // All the post-processing that can actually place tiles in this
-             // chunk are complete
-    static const int sTerrainPopulatedFromNW = 32;
-    static const int sTerrainPopulatedFromN = 64;
-    static const int sTerrainPopulatedFromNE = 128;
-    static const int sTerrainPopulatedFromE = 256;
-    static const int sTerrainPopulatedFromSE = 512;
-    static const int sTerrainPopulatedAllNeighbours =
-        1022;  // The post-processing passes of all neighbours to this chunk are
-               // complete
-    static const int sTerrainPostPostProcessed =
-        1024;  // This chunk has been post-post-processed, which is only done
-               // when all neighbours have been post-processed
-
-    short terrainPopulated;  // 4J - changed from bool to bitfield within short
-    short* serverTerrainPopulated;  // 4J added
-
-    void setUnsaved(bool unsaved);  // 4J added
 protected:
     // 4J Stu - Stopped this being private so we can add some more logic to it
     bool m_unsaved;
 
 public:
+    static bool touchedSky;
+
+    static const int BLOCKS_LENGTH = Level::CHUNK_TILE_COUNT;  // 4J added
+    static const int sTerrainPopulatedFromHere = 2;
+    static const int sTerrainPopulatedFromW = 4;
+    static const int sTerrainPopulatedFromS = 8;
+    static const int sTerrainPopulatedFromSW = 16;
+
+    // All the post-processing that can actually place tiles in this
+    // chunk are complete
+    static const int sTerrainPopulatedAllAffecting = 30;
+    static const int sTerrainPopulatedFromNW = 32;
+    static const int sTerrainPopulatedFromN = 64;
+    static const int sTerrainPopulatedFromNE = 128;
+    static const int sTerrainPopulatedFromE = 256;
+    static const int sTerrainPopulatedFromSE = 512;
+
+    // The post-processing passes of all neighbours to this chunk are complete
+    static const int sTerrainPopulatedAllNeighbours = 1022;
+
+    // This chunk has been post-post-processed, which is only done when all
+    // neighbours have been post-processed
+    static const int sTerrainPostPostProcessed = 1024;
+
+    const int ENTITY_BLOCKS_LENGTH;
+
+    std::vector<uint8_t> biomes;  // 4J Stu - Made public
+    std::vector<uint8_t> heightmap;
+    int minHeight;
+    int x, z;
+    bool loaded;
+
+    // 4J - optimisation brought forward from 1.8.2
+    // (was int arrayb in java though)
+    unsigned char rainHeights[16 * 16];
+
+    // 4J - lighting update brought forward
+    // from 1.8.2, was a bool array but now
+    // mixed with other flags in our
+    // version, and stored in nybbles
+    unsigned char columnFlags[16 * 8];
+
+    Level* level;
+    std::unordered_map<TilePos, std::shared_ptr<TileEntity>, TilePosKeyHash,
+                       TilePosKeyEq>
+        tileEntities;
+    std::vector<std::shared_ptr<Entity> >** entityBlocks;
+
+    short terrainPopulated;  // 4J - changed from bool to bitfield within short
+    short* serverTerrainPopulated;  // 4J added
+
     bool dontSave;
     bool lastSaveHadEntities;
 #if defined(SHARING_ENABLED)
     bool sharingTilesAndData;  // 4J added
 #endif
-    bool emissiveAdded;                              // 4J added
-    void stopSharingTilesAndData();                  // 4J added
-    virtual void reSyncLighting();                   // 4J added
-    void startSharingTilesAndData(int forceMs = 0);  // 4J added
-    int64_t lastUnsharedTime;                        // 4J added
+    bool emissiveAdded;        // 4J added
+    int64_t lastUnsharedTime;  // 4J added
     int64_t lastSaveTime;
     bool seenByPlayer;
     int lowestHeightmap;
@@ -202,41 +115,93 @@ public:
     CompoundTag* m_unloadedEntitiesTag;
 #endif
 
-    // static const int LIGHT_CHECK_MAX_POS = NUM_SECTIONS * 16 * 16;
-private:
-    int checkLightPosition;
+    enum EColumnFlag {
+        eColumnFlag_recheck = 1,
+        eColumnFlag_biomeOk = 2,
+        eColumnFlag_biomeHasSnow = 4,
+        eColumnFlag_biomeHasRain = 8,
+    };
 
-public:
-    virtual void init(Level* level, int x, int z);
+    static void reorderBlocksAndDataToXZY(int y0, int xs, int ys, int zs,
+                                          std::vector<uint8_t>* data);
+
+    // Set block data to that passed in in the input array of size 32768
+    void setBlockData(std::vector<uint8_t>& data);
+
+    // Sets data in passed in array of size 32768, from the block data in this
+    // chunk
+    void getBlockData(std::vector<uint8_t>& data);
+
+    int getBlocksAllocatedSize(int* count0, int* count1, int* count2,
+                               int* count4, int* count8);
+
+    // Set data to that passed in in the
+    // input array of size 32768
+    void setDataData(std::vector<uint8_t>& data);
+
+    // Sets data in passed in array of size
+    // 16384, from the data in this chunk
+    void getDataData(std::vector<uint8_t>& data);
+
+    // Get a byte array of length 16384 ( 128 x 16 x 16 x 0.5 ),
+    // containing sky light data. Ordering same as java version.
+    void getSkyLightData(std::vector<uint8_t>& data);
+
+    // Get a byte array of length 16384 ( 128 x 16 x 16 x
+    // 0.5 ), containing block light data. Ordering same
+    // as java version.
+    void getBlockLightData(std::vector<uint8_t>& data);
+
+    // Set sky light data to data passed in input byte
+    // array of length 16384. This data must be in
+    // original (java version) order
+    void setSkyLightData(std::vector<uint8_t>& data);
+
+    // Set block light data to data passed in input byte
+    // array of length 16384. This data must be in
+    // original (java version) order
+    void setBlockLightData(std::vector<uint8_t>& data);
+
+    // Set sky light data to be all fully lit
+    void setSkyLightDataAllBright();
+
+    bool isLowerBlockStorageCompressed();
+    int isLowerBlockLightStorageCompressed();
+    int isLowerDataStorageCompressed();
+    bool isRenderChunkEmpty(int y);
+    void writeCompressedBlockData(DataOutputStream* dos);
+    void writeCompressedDataData(DataOutputStream* dos);
+    void writeCompressedSkyLightData(DataOutputStream* dos);
+    void writeCompressedBlockLightData(DataOutputStream* dos);
+    void readCompressedBlockData(DataInputStream* dis);
+    void readCompressedDataData(DataInputStream* dis);
+    void readCompressedSkyLightData(DataInputStream* dis);
+    void readCompressedBlockLightData(DataInputStream* dis);
+    void compressLighting();  // 4J added
+    void compressBlocks();    // 4J added
+    void compressData();      // 4J added
+    int getHighestNonEmptyY();
+    std::vector<uint8_t> getReorderedBlocksAndData(int x, int y, int z, int xs,
+                                                   int& ys, int zs);
+    void setUnsaved(bool unsaved);          // 4J added
+    void recheckGaps(bool bForce = false);  // 4J - added parameter, made public
+    void stopSharingTilesAndData();         // 4J added
+    void startSharingTilesAndData(int forceMs = 0);  // 4J added
+    int getHighestSectionPosition();
+
     LevelChunk(Level* level, int x, int z);
     LevelChunk(Level* level, std::vector<uint8_t>& blocks, int x, int z);
     LevelChunk(Level* level, int x, int z, LevelChunk* lc);
     virtual ~LevelChunk();
 
+    virtual void reSyncLighting();  // 4J added
+    virtual void init(Level* level, int x, int z);
     virtual bool isAt(int x, int z);
-
     virtual int getHeightmap(int x, int z);
-    int getHighestSectionPosition();
     virtual void recalcBlockLights();
-
     virtual void recalcHeightmapOnly();
-
     virtual void recalcHeightmap();
-
     virtual void lightLava();
-
-private:
-    void lightGaps(int x, int z);
-    // 4J - changes for lighting brought forward from 1.8.2
-public:
-    void recheckGaps(bool bForce = false);  // 4J - added parameter, made public
-private:
-    void lightGap(int x, int z, int source);
-    void lightGap(int x, int z, int y1, int y2);
-
-    void recalcHeight(int x, int yStart, int z);
-
-public:
     virtual int getTileLightBlock(int x, int y, int z);
     virtual int getTile(int x, int y, int z);
     virtual bool setTileAndData(int x, int y, int z, int _tile, int _data);
@@ -267,6 +232,18 @@ public:
 #if defined(_LARGE_WORLDS)
     virtual bool isUnloaded();
 #endif
+
+#if defined(LIGHT_COMPRESSION_STATS)
+    int getBlockLightPlanesLower() { return lowerBlockLight->count; }
+    int getSkyLightPlanesLower() { return lowerSkyLight->count; }
+    int getBlockLightPlanesUpper() { return upperBlockLight->count; }
+    int getSkyLightPlanesUpper() { return upperSkyLight->count; }
+#endif
+
+#if defined(DATA_COMPRESSION_STATS)
+    int getDataPlanes() { return data->count; }
+#endif
+
     virtual void markUnsaved();
     virtual void getEntities(std::shared_ptr<Entity> except, AABB* bb,
                              std::vector<std::shared_ptr<Entity> >& es,
@@ -295,12 +272,6 @@ public:
     virtual bool isEmpty();
     virtual void attemptCompression();
 
-#if defined(SHARING_ENABLED)
-    static std::recursive_mutex m_csSharing;  // 4J added
-#endif
-    // 4J  added
-    static std::recursive_mutex m_csEntities;
-    static std::recursive_mutex m_csTileEntities;  // 4J  added
     static void staticCtor();
     void checkPostProcess(ChunkSource* source, ChunkSource* parent, int x,
                           int z);
@@ -314,26 +285,41 @@ public:
     virtual Biome* getBiome(int x, int z, BiomeSource* biomeSource);
     std::vector<uint8_t> getBiomes();
     void setBiomes(std::vector<uint8_t>& biomes);
-    bool biomeHasRain(int x, int z);  // 4J added
-    bool biomeHasSnow(int x, int z);  // 4J added
-private:
+    bool biomeHasRain(int x, int z);      // 4J added
+    bool biomeHasSnow(int x, int z);      // 4J added
     void updateBiomeFlags(int x, int z);  // 4J added
-public:
-    void compressLighting();  // 4J added
-    void compressBlocks();    // 4J added
-    void compressData();      // 4J added
-    int getHighestNonEmptyY();
-    std::vector<uint8_t> getReorderedBlocksAndData(int x, int y, int z, int xs,
-                                                   int& ys, int zs);
-    static void reorderBlocksAndDataToXZY(int y0, int xs, int ys, int zs,
-                                          std::vector<uint8_t>* data);
-#if defined(LIGHT_COMPRESSION_STATS)
-    int getBlockLightPlanesLower() { return lowerBlockLight->count; }
-    int getSkyLightPlanesLower() { return lowerSkyLight->count; }
-    int getBlockLightPlanesUpper() { return upperBlockLight->count; }
-    int getSkyLightPlanesUpper() { return upperSkyLight->count; }
+
+#if defined(SHARING_ENABLED)
+    static std::recursive_mutex m_csSharing;  // 4J added
 #endif
-#if defined(DATA_COMPRESSION_STATS)
-    int getDataPlanes() { return data->count; }
-#endif
+    // 4J  added
+    static std::recursive_mutex m_csEntities;
+    static std::recursive_mutex m_csTileEntities;  // 4J  added
+
+private:
+    // 4J - actual storage for blocks is now private with public methods to
+    // access it
+    CompressedTileStorage* lowerBlocks;  // 0 - 127
+    CompressedTileStorage* upperBlocks;  // 128 - 255
+
+    // 4J - actual storage for data is now private with public methods to access
+    // it
+    SparseDataStorage* lowerData;  // 0 - 127
+    SparseDataStorage* upperData;  // 128 - 255
+
+    // 4J - actual storage for sky & block lights is now private with new
+    // methods to be able to access it.
+
+    SparseLightStorage* lowerSkyLight;    // 0 - 127
+    SparseLightStorage* upperSkyLight;    // 128 - 255
+    SparseLightStorage* lowerBlockLight;  // 0 - 127
+    SparseLightStorage* upperBlockLight;  // 128 - 255
+
+    bool hasGapsToCheck;
+    int checkLightPosition;
+
+    void lightGaps(int x, int z);
+    void lightGap(int x, int z, int source);
+    void lightGap(int x, int z, int y1, int y2);
+    void recalcHeight(int x, int yStart, int z);
 };
