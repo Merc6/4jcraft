@@ -2,6 +2,7 @@
 
 #include <stdint.h>
 
+#include <array>
 #include <cstdint>
 #include <format>
 #include <memory>
@@ -81,13 +82,13 @@ public:
 
     // 4J - optimisation brought forward from 1.8.2
     // (was int arrayb in java though)
-    unsigned char rainHeights[16 * 16];
+    std::array<uint8_t, 256> rainHeights;
 
     // 4J - lighting update brought forward
     // from 1.8.2, was a bool array but now
     // mixed with other flags in our
     // version, and stored in nybbles
-    unsigned char columnFlags[16 * 8];
+    std::array<uint8_t, 128> columnFlags;
 
     Level* level;
     std::unordered_map<TilePos, std::shared_ptr<TileEntity>, TilePosKeyHash,
