@@ -2,7 +2,6 @@ name: Build (Linux, x86-64)
 
 # TODO: test with only pull-request
 on:
-<<<<<<< HEAD
   push:
     paths: &workflow_paths
       - "**.cppm"
@@ -33,7 +32,7 @@ concurrency:
   cancel-in-progress: ${{ !contains(github.ref, 'dev/') }}
 
 jobs:
-  build-linux-release:
+  build-linux-unity:
     runs-on: ubuntu-latest
 
     steps:
@@ -53,9 +52,9 @@ jobs:
         uses: ./.github/actions/build-meson
         with:
           dir_name: "build_release"
-          setup_args: "--buildtype=release"
+          setup_args: "-Dunity=on -Dunity_size=99999"
 
-  build-linux-debug:
+  build-linux-no-unity:
     runs-on: ubuntu-latest
 
     steps:
@@ -75,4 +74,4 @@ jobs:
         uses: ./.github/actions/build-meson
         with:
           dir_name: "build_debug"
-          setup_args: "--buildtype=debug"
+          setup_args: "-Dunity=off"
