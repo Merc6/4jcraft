@@ -298,14 +298,14 @@ public:
     std::generator<const T&> iter() const {
         // clang-format off
         return std::visit(overload {
-            [](ArrayStorage ars) -> std::generator<const T&> {
+            [](const ArrayStorage& ars) -> std::generator<const T&> {
                 for (const auto& entry : ars) {
                     if (entry.has_value()) {
                         co_yield entry->value;
                     }
                 }
             },
-            [](HashMapStorage hms) -> std::generator<const T&> {
+            [](const HashMapStorage& hms) -> std::generator<const T&> {
                 for (const auto& [idx, entry] : hms.index_map) {
                     co_yield entry.value;
                 }
@@ -455,7 +455,7 @@ public:
         m_indices_per_u64 = indices_per_u64;
         const std::size_t needed_u64 =
             (len + indices_per_u64 - 1) / indices_per_u64;
-        m_mask = (1U << m_index_size) - 1;
+        m_mask = (1ULL << m_index_size) - 1;
         m_storage.resize(needed_u64, 0);
         std::fill(m_storage.begin(), m_storage.end(), 0);
         m_len = len;
@@ -501,7 +501,7 @@ public:
             }
 
             m_indices_per_u64 = static_cast<uint8_t>(new_indices_per_u64);
-            m_mask = (1U << new_size) - 1;
+            m_mask = (1ULL << new_size) - 1;
         } else if (new_size < m_index_size) {
             if (new_size == 0) {
                 if (new_mapping.has_value()) {
@@ -533,7 +533,7 @@ public:
             }
 
             m_indices_per_u64 = static_cast<uint8_t>(new_indices_per_u64);
-            m_mask = (1U << new_size) - 1;
+            m_mask = (1ULL << new_size) - 1;
             const auto needed_u64 =
                 (m_len + new_indices_per_u64 - 1) / new_indices_per_u64;
             m_storage.resize(needed_u64);
@@ -754,7 +754,7 @@ public:
             return std::nullopt;
         }
 
-        const auto entry = m_palette.get_mut_by_index(*index);
+        const auto* entry = m_palette.get_mut_by_index(*index);
         if (entry == nullptr) {
             return std::nullopt;
         }
@@ -807,10 +807,10 @@ public:
         }
 
         const auto old_index = m_buffer.set_index(offset, new_index);
-        auto old_entry = *m_palette.get_mut_by_index(old_index);
+        auto* old_entry = m_palette.get_mut_by_index(old_index);
 
-        --old_entry.count;
-        if (old_entry.count == 0) {
+        --old_entry->count;
+        if (old_entry->count == 0) {
             m_palette.mark_as_unused(old_index);
         }
     }
