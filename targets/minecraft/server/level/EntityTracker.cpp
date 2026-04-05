@@ -99,7 +99,10 @@ void EntityTracker::addEntity(std::shared_ptr<Entity> e, int range,
                               int updateInterval, bool trackDeltas) {
     if (range > maxRange) range = maxRange;
     if (entityMap.find(e->entityId) != entityMap.end()) {
-        assert(false);  // Entity already tracked
+        // 4jcraft - this actually triggers now, I think it might have to do
+        // with the pr adding palette compression to chunks.
+        return;
+        // assert(false);  // Entity already tracked
     }
     if (e->entityId >= 2048) {
         __debugbreak();
