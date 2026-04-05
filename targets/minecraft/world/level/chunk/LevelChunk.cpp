@@ -3,10 +3,14 @@
 #include <string.h>
 
 #include <algorithm>
+#include <cstddef>
+#include <cstdint>
 #include <limits>
 #include <mutex>
+#include <ranges>
 #include <string>
 #include <utility>
+#include <vector>
 
 #include "app/common/src/Network/GameNetworkManager.h"
 #include "app/linux/LinuxGame.h"
@@ -38,6 +42,7 @@
 #include "minecraft/world/level/chunk/ChunkSource.h"
 #include "minecraft/world/level/chunk/CompressedTileStorage.h"
 #include "minecraft/world/level/chunk/SparseDataStorage.h"
+#include "minecraft/world/level/chunk/storage/palette_storage.hh"
 #include "minecraft/world/level/dimension/Dimension.h"
 #include "minecraft/world/level/material/Material.h"
 #include "minecraft/world/level/tile/ChestTile.h"
@@ -61,10 +66,7 @@ bool LevelChunk::touchedSky = false;
 void LevelChunk::staticCtor() {}
 
 void LevelChunk::init(Level* level, int x, int z) {
-    biomes = std::vector<uint8_t>(16 * 16);
-    for (int i = 0; i < 16 * 16; i++) {
-        biomes[i] = 0xff;
-    }
+    biomes = compression::PaletteVec<4, uint8_t>{0xFF, 256};
     {
         std::lock_guard<std::recursive_mutex> lock(m_csEntities);
         entityBlocks =
@@ -80,9 +82,6 @@ void LevelChunk::init(Level* level, int x, int z) {
     minHeight = 0;
     hasGapsToCheck = false;
     seenByPlayer = true;  // 4J Stu - Always true
-
-    // 4J Stu - Not using this
-    checkLightPosition = 0;  // LIGHT_CHECK_MAX_POS;
 
     this->level = level;
     this->x = x;
@@ -117,7 +116,6 @@ void LevelChunk::init(Level* level, int x, int z) {
     emissiveAdded = true;
 
 #if defined(_LARGE_WORLDS)
-    m_bUnloaded = false;  // 4J Added
     m_unloadedEntitiesTag = nullptr;
 #endif
 }
@@ -213,8 +211,10 @@ LevelChunk::LevelChunk(Level* level, int x, int z, LevelChunk* lc)
     : ENTITY_BLOCKS_LENGTH(Level::maxBuildHeight / 16) {
     init(level, x, z);
 
+    biomes = lc->biomes;
+
     // 4J Stu - Copy over the biome data
-    memcpy(biomes.data(), lc->biomes.data(), biomes.size());
+    // memcpy(biomes.data(), lc->biomes.data(), biomes.size());
 
 #if defined(SHARING_ENABLED)
     lowerBlocks = lc->lowerBlocks;
@@ -1346,7 +1346,7 @@ void LevelChunk::load() {
 
     if (!level->isClientSide) {
 #if defined(_LARGE_WORLDS)
-        if (m_bUnloaded && m_unloadedEntitiesTag) {
+        if (!loaded && m_unloadedEntitiesTag) {
             ListTag<CompoundTag>* entityTags =
                 (ListTag<CompoundTag>*)m_unloadedEntitiesTag->getList(
                     L"Entities");
@@ -1377,7 +1377,7 @@ void LevelChunk::load() {
             }
             delete m_unloadedEntitiesTag;
             m_unloadedEntitiesTag = nullptr;
-            m_bUnloaded = false;
+            loaded = true;
         }
 #endif
 
@@ -1399,7 +1399,7 @@ void LevelChunk::load() {
         }
     } else {
 #if defined(_LARGE_WORLDS)
-        m_bUnloaded = false;
+        loaded = true;
 #endif
     }
 }
@@ -1433,10 +1433,10 @@ void LevelChunk::unload(bool unloadTileEntities)  // 4J - added parameter
     // app.DebugPrintf("Unloaded chunk %d, %d\n", x, z);
 
 #if defined(_LARGE_WORLDS)
-    if (!m_bUnloaded)  // 4J-JEV: If we unload a chunk twice, we delete all the
+    if (loaded)  // 4J-JEV: If we unload a chunk twice, we delete all the
                        // entities/tile-entities its saved in the entitiesTag.
     {
-        m_bUnloaded = true;
+        loaded = false;
         if (!level->isClientSide) {
             delete m_unloadedEntitiesTag;
             // 4J Stu - Save out entities to a cached format that won't
@@ -1502,7 +1502,7 @@ bool LevelChunk::containsPlayer() {
 }
 
 #if defined(_LARGE_WORLDS)
-bool LevelChunk::isUnloaded() { return m_bUnloaded; }
+bool LevelChunk::isUnloaded() { return !loaded; }
 #endif
 
 void LevelChunk::markUnsaved() { this->setUnsaved(true); }
@@ -1822,8 +1822,10 @@ int LevelChunk::setBlocksAndData(std::vector<uint8_t>& data, int x0, int y0,
                 data, x0, std::max(y0 - compressedHeight, 0), z0, x1,
                 y1 - Level::COMPRESSED_CHUNK_SECTION_HEIGHT, z1, p);
 
-        memcpy(biomes.data(), &data.data()[p], biomes.size());
-        p += biomes.size();
+        for (std::size_t idx = 0; idx < biomes.len(); ++idx) {
+            biomes.set(idx, data[p + idx]);
+        }
+        p += biomes.len();
     } else {
         // Because the host's local client shares data with it, the lighting
         // updates that are done via callbacks in the setDataRegion calls above
@@ -1878,8 +1880,6 @@ int LevelChunk::setBlocksAndData(std::vector<uint8_t>& data, int x0, int y0,
 
     return p;
 }
-
-void LevelChunk::setCheckAllLight() { checkLightPosition = 0; }
 
 Random* LevelChunk::getRandom(int64_t l) {
     return new Random((level->getSeed() + x * x * 4987142 + x * 5947611 +
@@ -1974,19 +1974,20 @@ void LevelChunk::reloadBiomes() {
         for (unsigned int z = 0; z < 16; ++z) {
             Biome* biome =
                 biomeSource->getBiome((this->x << 4) + x, (this->z << 4) + z);
-            biomes[(z << 4) | x] = (uint8_t)((biome->id) & 0xff);
+            biomes.set((z << 4) | x, static_cast<uint8_t>(biome->id & 0xff));
         }
     }
+    biomes.optimize();
 }
 
 Biome* LevelChunk::getBiome(int x, int z, BiomeSource* biomeSource) {
-    int value = biomes[((unsigned)z << 4) | x] & 0xff;
+    int value = *biomes.get(((unsigned)z << 4) | x) & 0xff;
     if (value == 0xff) {
         // 4jcraft added casts to u
         Biome* biome = biomeSource->getBiome(((unsigned)this->x << 4) + x,
                                              ((unsigned)this->z << 4) + z);
         value = biome->id;
-        biomes[((unsigned)z << 4) | x] = (uint8_t)(value & 0xff);
+        biomes.set(((unsigned)z << 4) | x, (uint8_t)(value & 0xff));
     }
     if (Biome::biomes[value] == nullptr) {
         return Biome::plains;
@@ -1994,10 +1995,19 @@ Biome* LevelChunk::getBiome(int x, int z, BiomeSource* biomeSource) {
     return Biome::biomes[value];
 }
 
-std::vector<uint8_t> LevelChunk::getBiomes() { return biomes; }
+std::vector<uint8_t> LevelChunk::getBiomes() {
+    std::vector<uint8_t> collection;
+    collection.reserve(biomes.len());
+
+    for (const auto& value : biomes.iter()) {
+        collection.push_back(value);
+    }
+
+    return collection;
+}
 
 void LevelChunk::setBiomes(std::vector<uint8_t>& biomes) {
-    this->biomes = biomes;
+    this->biomes = compression::PaletteVec<4, uint8_t>{biomes};
 }
 
 // 4J - optimisation brought forward from 1.8.2
@@ -2343,7 +2353,7 @@ std::vector<uint8_t> LevelChunk::getReorderedBlocksAndData(int x0, int y0,
     unsigned int halfTileCount = tileCount / 2;
 
     std::vector<uint8_t> data =
-        std::vector<uint8_t>(tileCount + (3 * halfTileCount) + biomes.size());
+        std::vector<uint8_t>(tileCount + (3 * halfTileCount) + biomes.len());
     for (int x = 0; x < xs; x++) {
         for (int z = 0; z < zs; z++) {
             for (int y = 0; y < ys; y++) {
@@ -2387,7 +2397,11 @@ std::vector<uint8_t> LevelChunk::getReorderedBlocksAndData(int x0, int y0,
             data, x0, std::max(y0 - compressedHeight, 0), z0, x1,
             y1 - Level::COMPRESSED_CHUNK_SECTION_HEIGHT, z1, p);
 
-    memcpy(&data.data()[p], biomes.data(), biomes.size());
+    for (const auto& [i, value] : biomes.iter() | std::views::enumerate) {
+        data[p + i] = value;
+    }
+
+    // memcpy(&data.data()[p], biomes.data(), biomes.size());
 
     return data;
 

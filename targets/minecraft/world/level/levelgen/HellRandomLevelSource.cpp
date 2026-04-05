@@ -327,7 +327,6 @@ LevelChunk* HellRandomLevelSource::getChunk(int xOffs, int zOffs) {
     // passed in blocks as the LevelChunk doesn't use the passed in allocation
     // anymore.
     LevelChunk* levelChunk = new LevelChunk(level, blocks, xOffs, zOffs);
-    levelChunk->setCheckAllLight();
     free(tileData);
     return levelChunk;
 }

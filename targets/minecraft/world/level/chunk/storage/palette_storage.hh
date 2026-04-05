@@ -73,7 +73,8 @@ public:
         if (auto* arr =
                 std::get_if<std::array<std::optional<PaletteEntry>,
                                        INLINE_PALETTE_THRESHOLD>>(&m_storage)) {
-            for (const auto& [idx, entry] : std::ranges::views::enumerate(*arr)) {
+            for (const auto& [idx, entry] :
+                 std::ranges::views::enumerate(*arr)) {
                 if (entry.has_value() && entry->value == value) {
                     return std::pair{&entry.value(), idx};
                 }
@@ -204,8 +205,9 @@ public:
             [&](ArrayStorage& ars) -> std::optional<std::unordered_map<std::size_t, std::size_t>> {
                 std::unordered_map<T, std::size_t> old_mapping;
 
-                for (auto& [idx, entry] : std::ranges::views::enumerate(ars)
-                                        | std::ranges::views::filter([](auto& entry) { return entry.has_value(); }))
+                for (const auto& [idx, entry] : ars
+                                        | std::ranges::views::filter([](auto& entry) { return entry.has_value(); })
+                                        | std::ranges::views::enumerate)
                 {
                     old_mapping.emplace(entry->value, idx);
                 }
@@ -225,7 +227,7 @@ public:
                 std::unordered_map<std::size_t, std::size_t> new_mapping;
                 bool needs_new_mapping = false;
 
-                for (auto& [new_index, entry] : std::ranges::views::enumerate(ars)) {
+                for (const auto& [new_index, entry] : ars | std::ranges::views::enumerate) {
                     if (!entry.has_value()) {
                         break;
                     }
@@ -274,7 +276,7 @@ public:
                 std::unordered_map<std::size_t, PaletteEntry> new_index_map;
                 std::unordered_map<T, std::size_t> new_value_map;
 
-                for (auto& [new_index, kv] : std::ranges::views::enumerate(entries)) {
+                for (const auto& [new_index, kv] : entries | std::ranges::views::enumerate) {
                     auto& [old_index, entry] = kv;
                     new_value_map.emplace(entry.value, new_index);
                     new_mapping.emplace(old_index, new_index);
@@ -702,6 +704,8 @@ public:
         for (const auto& value : vec) {
             push(value);
         }
+
+        optimize();
     }
 
     [[nodiscard]]

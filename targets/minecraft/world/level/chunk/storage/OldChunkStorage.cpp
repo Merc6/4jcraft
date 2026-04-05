@@ -9,6 +9,7 @@
 #include <string>
 #include <unordered_map>
 #include <utility>
+#include <vector>
 
 #include "IPlatformInput.h"
 #include "app/common/src/Console_Debug_enum.h"
@@ -449,12 +450,19 @@ LevelChunk* OldChunkStorage::load(Level* level, DataInputStream* dis) {
         app.GetGameSettingsDebugMask(PlatformInput.GetPrimaryPad()) &
             (1L << eDebugSetting_EnableBiomeOverride)) {
         // Read the biome data from the stream, but don't use it
-        std::vector<uint8_t> dummyBiomes(levelChunk->biomes.size());
+        std::vector<uint8_t> dummyBiomes(levelChunk->biomes.len());
         dis->readFully(dummyBiomes);
     } else
 #endif
     {
-        dis->readFully(levelChunk->biomes);
+        std::vector<uint8_t> biomes;
+        biomes.reserve(levelChunk->biomes.len());
+
+        for (const auto& biome : levelChunk->biomes.iter()) {
+            biomes.push_back(biome);
+        }
+
+        dis->readFully(biomes);
     }
 
     CompoundTag* tag = NbtIo::read(dis);

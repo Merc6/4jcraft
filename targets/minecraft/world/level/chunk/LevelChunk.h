@@ -18,6 +18,7 @@
 #include "minecraft/world/level/Level.h"
 #include "minecraft/world/level/LightLayer.h"
 #include "minecraft/world/level/TilePos.h"
+#include "minecraft/world/level/chunk/storage/palette_storage.hh"
 
 class DataLayer;
 class TileEntity;
@@ -74,21 +75,11 @@ public:
 
     const int ENTITY_BLOCKS_LENGTH;
 
-    std::vector<uint8_t> biomes;  // 4J Stu - Made public
+    // TODO fuck around with this value
+    compression::PaletteVec<4, uint8_t> biomes{};  // 4J Stu - Made public
     std::vector<uint8_t> heightmap;
     int minHeight;
     int x, z;
-    bool loaded;
-
-    // 4J - optimisation brought forward from 1.8.2
-    // (was int arrayb in java though)
-    std::array<uint8_t, 256> rainHeights;
-
-    // 4J - lighting update brought forward
-    // from 1.8.2, was a bool array but now
-    // mixed with other flags in our
-    // version, and stored in nybbles
-    std::array<uint8_t, 128> columnFlags;
 
     Level* level;
     std::unordered_map<TilePos, std::shared_ptr<TileEntity>, TilePosKeyHash,
@@ -97,7 +88,6 @@ public:
     std::vector<std::shared_ptr<Entity> >** entityBlocks;
 
     short terrainPopulated;  // 4J - changed from bool to bitfield within short
-    short* serverTerrainPopulated;  // 4J added
 
     bool dontSave;
     bool lastSaveHadEntities;
@@ -111,8 +101,8 @@ public:
     int lowestHeightmap;
     int64_t inhabitedTime;
 
+    bool loaded;
 #if defined(_LARGE_WORLDS)
-    bool m_bUnloaded;
     CompoundTag* m_unloadedEntitiesTag;
 #endif
 
@@ -267,8 +257,6 @@ public:
     virtual bool testSetBlocksAndData(std::vector<uint8_t>& data, int x0,
                                       int y0, int z0, int x1, int y1, int z1,
                                       int p);  // 4J added
-    virtual void setCheckAllLight();
-
     virtual Random* getRandom(int64_t l);
     virtual bool isEmpty();
     virtual void attemptCompression();
@@ -317,7 +305,18 @@ private:
     SparseLightStorage* upperBlockLight;  // 128 - 255
 
     bool hasGapsToCheck;
-    int checkLightPosition;
+
+    // 4J - optimisation brought forward from 1.8.2
+    // (was int arrayb in java though)
+    std::array<uint8_t, 256> rainHeights;
+
+    // 4J - lighting update brought forward
+    // from 1.8.2, was a bool array but now
+    // mixed with other flags in our
+    // version, and stored in nybbles
+    std::array<uint8_t, 128> columnFlags;
+
+    short* serverTerrainPopulated;  // 4J added
 
     void lightGaps(int x, int z);
     void lightGap(int x, int z, int source);
