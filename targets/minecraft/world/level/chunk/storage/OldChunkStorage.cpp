@@ -253,7 +253,8 @@ void OldChunkStorage::save(LevelChunk* lc, Level* level,
     lc->writeCompressedSkyLightData(dos);
     lc->writeCompressedBlockLightData(dos);
 
-    dos->write(lc->heightmap);
+    auto vec = lc->heightmap.into_vec();
+    dos->write(vec);
     dos->writeShort(lc->terrainPopulated);
     dos->write(lc->getBiomes());
 
@@ -336,7 +337,8 @@ void OldChunkStorage::save(LevelChunk* lc, Level* level, CompoundTag* tag) {
     tag->putByteArray(L"SkyLight", tls->skyLightData);
     tag->putByteArray(L"BlockLight", tls->blockLightData);
 
-    tag->putByteArray(L"HeightMap", lc->heightmap);
+    auto vec = lc->heightmap.into_vec();
+    tag->putByteArray(L"HeightMap", vec);
     tag->putShort(
         L"TerrainPopulatedFlags",
         lc->terrainPopulated);  // 4J - changed from "TerrainPopulated" to
@@ -431,7 +433,8 @@ LevelChunk* OldChunkStorage::load(Level* level, DataInputStream* dis) {
     levelChunk->readCompressedSkyLightData(dis);
     levelChunk->readCompressedBlockLightData(dis);
 
-    dis->readFully(levelChunk->heightmap);
+    auto vec = levelChunk->heightmap.into_vec();
+    dis->readFully(vec);
 
     levelChunk->terrainPopulated = dis->readShort();
     // If all neighbours have been post-processed, then we should have done the
@@ -531,7 +534,7 @@ LevelChunk* OldChunkStorage::load(Level* level, CompoundTag* tag) {
     // level->depthBits); 	levelChunk->blockLight = new
     // DataLayer(tag->getByteArray(L"BlockLight"), level->depthBits);
 
-    levelChunk->heightmap = tag->getByteArray(L"HeightMap");
+    levelChunk->heightmap = compression::PaletteVec<4, uint8_t>{tag->getByteArray(L"HeightMap")};
     // 4J - TerrainPopulated was a bool (java), then changed to be a byte
     // bitfield, then replaced with TerrainPopulatedShort to store a wider
     // bitfield

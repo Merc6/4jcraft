@@ -77,7 +77,8 @@ public:
 
     // TODO fuck around with this value
     compression::PaletteVec<4, uint8_t> biomes{};  // 4J Stu - Made public
-    std::vector<uint8_t> heightmap;
+    compression::PaletteVec<4, uint8_t> heightmap{};
+
     int minHeight;
     int x, z;
 
@@ -286,6 +287,8 @@ public:
     static std::recursive_mutex m_csTileEntities;  // 4J  added
 
 private:
+    mutable std::mutex m_biomes_mutex;
+
     // 4J - actual storage for blocks is now private with public methods to
     // access it
     CompressedTileStorage* lowerBlocks;  // 0 - 127

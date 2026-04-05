@@ -86,7 +86,8 @@ void LevelChunk::init(Level* level, int x, int z) {
     this->level = level;
     this->x = x;
     this->z = z;
-    heightmap = std::vector<uint8_t>(16 * 16);
+    heightmap = compression::PaletteVec<4, uint8_t>(0, 256);
+
     {
         std::lock_guard<std::recursive_mutex> lock(m_csEntities);
         for (int i = 0; i < ENTITY_BLOCKS_LENGTH; i++) {
@@ -452,7 +453,7 @@ LevelChunk::~LevelChunk() {
 bool LevelChunk::isAt(int x, int z) { return x == this->x && z == this->z; }
 
 int LevelChunk::getHeightmap(int x, int z) {
-    return heightmap[z << 4 | x] & 0xff;
+    return *heightmap.get(z << 4 | x) & 0xff;
 }
 
 int LevelChunk::getHighestSectionPosition() {
@@ -497,7 +498,7 @@ void LevelChunk::recalcHeightmapOnly() {
                              ? upperBlocks
                              : lowerBlocks;
             }
-            heightmap[(unsigned)z << 4 | x] = (uint8_t)y;
+            heightmap.set((unsigned)z << 4 | x, (uint8_t)y);
             if (y < min) min = y;
         }
 
@@ -533,7 +534,7 @@ void LevelChunk::recalcHeightmap() {
                              ? upperBlocks
                              : lowerBlocks;
             }
-            heightmap[(unsigned)z << 4 | x] = (uint8_t)y;
+            heightmap.set((unsigned)z << 4 | x, (uint8_t)y);
             if (y < min) min = y;
             if (y < lowestHeightmap) lowestHeightmap = y;
 
@@ -721,7 +722,7 @@ void LevelChunk::lightGap(int x, int z, int y1, int y2) {
 }
 
 void LevelChunk::recalcHeight(int x, int yStart, int z) {
-    int yOld = heightmap[(unsigned)z << 4 | x] & 0xff;
+    int yOld = *heightmap.get((unsigned)z << 4 | x) & 0xff;
     int y = yOld;
     if (yStart > yOld) y = yStart;
 
@@ -747,7 +748,7 @@ void LevelChunk::recalcHeight(int x, int yStart, int z) {
 
     //    level->lightColumnChanged(x, z, y, yOld);		// 4J - this
     //    call moved below & corrected - see comment further down
-    heightmap[(unsigned)z << 4 | x] = (uint8_t)y;
+    heightmap.set((unsigned)z << 4 | x, (uint8_t)y);
 
     if (y < minHeight) {
         minHeight = y;
@@ -755,8 +756,8 @@ void LevelChunk::recalcHeight(int x, int yStart, int z) {
         int min = Level::maxBuildHeight - 1;
         for (int _x = 0; _x < 16; _x++)
             for (int _z = 0; _z < 16; _z++) {
-                if ((heightmap[(unsigned)_z << 4 | _x] & 0xff) < min)
-                    min = (heightmap[(unsigned)_z << 4 | _x] & 0xff);
+                if ((*heightmap.get((unsigned)_z << 4 | _x) & 0xff) < min)
+                    min = (*heightmap.get((unsigned)_z << 4 | _x) & 0xff);
             }
         this->minHeight = min;
     }
@@ -819,7 +820,7 @@ void LevelChunk::recalcHeight(int x, int yStart, int z) {
     level->lightColumnChanged(xOffs, zOffs, y, yOld);
 
     // 4J -  lighting changes brought forward from 1.8.2
-    int height = heightmap[(unsigned)z << 4 | x];
+    int height = *heightmap.get((unsigned)z << 4 | x);
     int y1 = yOld;
     int y2 = height;
     if (y2 < y1) {
@@ -869,7 +870,7 @@ bool LevelChunk::setTileAndData(int x, int y, int z, int _tile, int _data) {
         rainHeights[slot] = 255;
     }
 
-    int oldHeight = heightmap[slot] & 0xff;
+    int oldHeight = *heightmap.get(slot) & 0xff;
 
     CompressedTileStorage* blocks =
         y >= Level::COMPRESSED_CHUNK_SECTION_HEIGHT ? upperBlocks : lowerBlocks;
@@ -1192,7 +1193,7 @@ void LevelChunk::removeEntity(std::shared_ptr<Entity> e, int yc) {
 }
 
 bool LevelChunk::isSkyLit(int x, int y, int z) {
-    return y >= (heightmap[(unsigned)z << 4 | x] & 0xff);
+    return y >= (*heightmap.get((unsigned)z << 4 | x) & 0xff);
 }
 
 void LevelChunk::skyBrightnessChanged() {
@@ -1981,7 +1982,12 @@ void LevelChunk::reloadBiomes() {
 }
 
 Biome* LevelChunk::getBiome(int x, int z, BiomeSource* biomeSource) {
-    int value = *biomes.get(((unsigned)z << 4) | x) & 0xff;
+    // BUG: this should always exist, but for some reason it doesn't
+    // it might have to do with why I had to add a mutex here.
+    std::lock_guard lock(m_biomes_mutex);
+
+    const uint8_t* biome_val = biomes.get(((unsigned)z << 4) | x);
+    int value = biome_val ? (*biome_val) : 0xFF;
     if (value == 0xff) {
         // 4jcraft added casts to u
         Biome* biome = biomeSource->getBiome(((unsigned)this->x << 4) + x,

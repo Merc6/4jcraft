@@ -6,7 +6,7 @@
 #include "ZoneFile.h"
 #include "java/ByteBuffer.h"
 #include "java/File.h"
-
+#include "palette_storage.hh"
 
 
 
@@ -106,7 +106,7 @@ LevelChunk* ZonedChunkStorage::load(Level* level, int x, int z) {
     lc->data = new DataLayer(zoneIo->read(CHUNK_SIZE / 2)->array());
     lc->skyLight = new DataLayer(zoneIo->read(CHUNK_SIZE / 2)->array());
     lc->blockLight = new DataLayer(zoneIo->read(CHUNK_SIZE / 2)->array());
-    lc->heightmap = zoneIo->read(CHUNK_WIDTH * CHUNK_WIDTH)->array();
+    lc->heightmap = compression::PaletteVec<4, uint8_t>{zoneIo->read(CHUNK_WIDTH * CHUNK_WIDTH)->array()};
 
     header->flip();
     int xOrg = header->getInt();
@@ -135,12 +135,13 @@ void ZonedChunkStorage::save(Level* level, LevelChunk* lc) {
     header->flip();
 
     ZoneIo* zoneIo = getBuffer(lc->x, lc->z, true);
+    auto vec = lc->heightmap.into_vec();
     zoneIo->write(header, CHUNK_HEADER_SIZE);
     zoneIo->write(lc->blocks, CHUNK_SIZE);
     zoneIo->write(lc->data->data, CHUNK_SIZE / 2);
     zoneIo->write(lc->skyLight->data, CHUNK_SIZE / 2);
     zoneIo->write(lc->blockLight->data, CHUNK_SIZE / 2);
-    zoneIo->write(lc->heightmap, CHUNK_WIDTH * CHUNK_WIDTH);
+    zoneIo->write(vec, CHUNK_WIDTH * CHUNK_WIDTH);
     zoneIo->flush();
 }
 

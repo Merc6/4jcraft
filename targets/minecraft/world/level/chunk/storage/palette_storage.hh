@@ -783,10 +783,9 @@ public:
 
             if (old_index != index) {
                 ++entry->count;
-                auto old_entry = *m_palette.get_mut_by_index(old_index);
-                --old_entry.count;
-
-                if (old_entry.count == 0) {
+                auto* old_entry = m_palette.get_mut_by_index(old_index);
+                --old_entry->count;
+                if (old_entry->count == 0) {
                     m_palette.mark_as_unused(old_index);
                 }
             }
@@ -835,6 +834,17 @@ public:
             const auto& entry = *m_palette.get_by_index(idx);
             co_yield entry.value;
         }
+    }
+
+    std::vector<T> into_vec() const noexcept {
+        std::vector<T> collection;
+        collection.reserve(len());
+
+        for (const auto& item : iter()) {
+            collection.push_back(item);
+        }
+
+        return collection;
     }
 
 private:
