@@ -136,8 +136,8 @@ LevelChunk::LevelChunk(Level* level, int x, int z)
         // them
         upperBlocks = new CompressedTileStorage(true);
         upperData = new SparseDataStorage(true);
-        upperSkyLight = new SparseLightStorage(true, true);
-        upperBlockLight = new SparseLightStorage(false, true);
+        upperSkyLight = std::make_unique<SparseLightStorage>(true, true);
+        upperBlockLight = std::make_unique<SparseLightStorage>(false, true);
     } else {
         upperBlocks = nullptr;
         upperData = nullptr;
@@ -169,15 +169,15 @@ LevelChunk::LevelChunk(Level* level, std::vector<uint8_t>& blocks, int x, int z)
         lowerBlocks = new CompressedTileStorage(true);
         lowerData = new SparseDataStorage(true);
 
-        lowerSkyLight = new SparseLightStorage(true, true);
-        lowerBlockLight = new SparseLightStorage(false, true);
+        lowerSkyLight = std::make_unique<SparseLightStorage>(true, true);
+        lowerBlockLight = std::make_unique<SparseLightStorage>(false, true);
     } else {
         lowerBlocks = new CompressedTileStorage(blocks, 0);
         lowerData = new SparseDataStorage();
 
         // 4J - changed to new SpareLightStorage class for these
-        lowerSkyLight = new SparseLightStorage(true);
-        lowerBlockLight = new SparseLightStorage(false);
+        lowerSkyLight = std::make_unique<SparseLightStorage>(true);
+        lowerBlockLight = std::make_unique<SparseLightStorage>(false);
     }
     //    skyLight = new DataLayer(blocks.size(), level->depthBits);
     //    blockLight = new DataLayer(blocks.size(), level->depthBits);
@@ -189,8 +189,8 @@ LevelChunk::LevelChunk(Level* level, std::vector<uint8_t>& blocks, int x, int z)
         else
             upperBlocks = new CompressedTileStorage(true);
         upperData = new SparseDataStorage(true);
-        upperSkyLight = new SparseLightStorage(true, true);
-        upperBlockLight = new SparseLightStorage(false, true);
+        upperSkyLight = std::make_unique<SparseLightStorage>(true, true);
+        upperBlockLight = std::make_unique<SparseLightStorage>(false, true);
     } else {
         upperBlocks = nullptr;
         upperData = nullptr;
@@ -220,12 +220,12 @@ LevelChunk::LevelChunk(Level* level, int x, int z, LevelChunk* lc)
 #if defined(SHARING_ENABLED)
     lowerBlocks = lc->lowerBlocks;
     lowerData = lc->lowerData;
-    lowerSkyLight = new SparseLightStorage(lc->lowerSkyLight);
-    lowerBlockLight = new SparseLightStorage(lc->lowerBlockLight);
+    lowerSkyLight = std::make_unique<SparseLightStorage>(lc->lowerSkyLight.get());
+    lowerBlockLight = std::make_unique<SparseLightStorage>(lc->lowerBlockLight.get());
     upperBlocks = lc->upperBlocks;
     upperData = lc->upperData;
-    upperSkyLight = new SparseLightStorage(lc->upperSkyLight);
-    upperBlockLight = new SparseLightStorage(lc->upperBlockLight);
+    upperSkyLight = std::make_unique<SparseLightStorage>(lc->upperSkyLight.get());
+    upperBlockLight = std::make_unique<SparseLightStorage>(lc->upperBlockLight.get());
 
     sharingTilesAndData = true;
     serverTerrainPopulated = &lc->terrainPopulated;
@@ -335,20 +335,12 @@ void LevelChunk::reSyncLighting() {
                              ->cache->getChunk(x, z);
 #endif
 
-        GameRenderer::AddForDelete(lowerSkyLight);
-        lowerSkyLight = new SparseLightStorage(lc->lowerSkyLight);
-        GameRenderer::FinishedReassigning();
-        GameRenderer::AddForDelete(lowerBlockLight);
-        lowerBlockLight = new SparseLightStorage(lc->lowerBlockLight);
-        GameRenderer::FinishedReassigning();
+        lowerSkyLight = std::make_unique<SparseLightStorage>(lc->lowerSkyLight.get());
+        lowerBlockLight = std::make_unique<SparseLightStorage>(lc->lowerBlockLight.get());
 
         if (Level::maxBuildHeight > Level::COMPRESSED_CHUNK_SECTION_HEIGHT) {
-            GameRenderer::AddForDelete(upperSkyLight);
-            upperSkyLight = new SparseLightStorage(lc->upperSkyLight);
-            GameRenderer::FinishedReassigning();
-            GameRenderer::AddForDelete(upperBlockLight);
-            upperBlockLight = new SparseLightStorage(lc->upperBlockLight);
-            GameRenderer::FinishedReassigning();
+            upperSkyLight = std::make_unique<SparseLightStorage>(lc->upperSkyLight.get());
+            upperBlockLight = std::make_unique<SparseLightStorage>(lc->upperBlockLight.get());
         }
     }
 #endif
@@ -436,11 +428,6 @@ LevelChunk::~LevelChunk() {
         if (upperData) delete upperData;
         if (upperBlocks) delete upperBlocks;
     }
-
-    delete lowerSkyLight;
-    delete lowerBlockLight;
-    if (upperSkyLight) delete upperSkyLight;
-    if (upperBlockLight) delete upperBlockLight;
 
     for (int i = 0; i < ENTITY_BLOCKS_LENGTH; ++i) delete entityBlocks[i];
     delete[] entityBlocks;
@@ -546,8 +533,8 @@ void LevelChunk::recalcHeightmap() {
                                                                  : lowerBlocks;
                 SparseLightStorage* skyLight =
                     yy >= Level::COMPRESSED_CHUNK_SECTION_HEIGHT
-                        ? upperSkyLight
-                        : lowerSkyLight;
+                        ? upperSkyLight.get()
+                        : lowerSkyLight.get();
                 do {
                     br -= Tile::lightBlock
                         [blocks->get(
@@ -564,8 +551,8 @@ void LevelChunk::recalcHeightmap() {
                                  ? upperBlocks
                                  : lowerBlocks;
                     skyLight = yy >= Level::COMPRESSED_CHUNK_SECTION_HEIGHT
-                                   ? upperSkyLight
-                                   : lowerSkyLight;
+                                   ? upperSkyLight.get()
+                                   : lowerSkyLight.get();
                 } while (yy > 0 && br > 0);
             }
         }
@@ -767,12 +754,12 @@ void LevelChunk::recalcHeight(int x, int yStart, int z) {
     if (!level->dimension->hasCeiling) {
         if (y < yOld) {
             SparseLightStorage* skyLight =
-                y >= Level::COMPRESSED_CHUNK_SECTION_HEIGHT ? upperSkyLight
-                                                            : lowerSkyLight;
+                y >= Level::COMPRESSED_CHUNK_SECTION_HEIGHT ? upperSkyLight.get()
+                                                            : lowerSkyLight.get();
             for (int yy = y; yy < yOld; yy++) {
                 skyLight = yy >= Level::COMPRESSED_CHUNK_SECTION_HEIGHT
-                               ? upperSkyLight
-                               : lowerSkyLight;
+                               ? upperSkyLight.get()
+                               : lowerSkyLight.get();
                 skyLight->set(x, (yy % Level::COMPRESSED_CHUNK_SECTION_HEIGHT),
                               z, 15);
             }
@@ -781,12 +768,12 @@ void LevelChunk::recalcHeight(int x, int yStart, int z) {
             //        level->updateLight(LightLayer::Sky, xOffs, yOld, zOffs,
             //        xOffs, y, zOffs);
             SparseLightStorage* skyLight =
-                y >= Level::COMPRESSED_CHUNK_SECTION_HEIGHT ? upperSkyLight
-                                                            : lowerSkyLight;
+                y >= Level::COMPRESSED_CHUNK_SECTION_HEIGHT ? upperSkyLight.get()
+                                                            : lowerSkyLight.get();
             for (int yy = yOld; yy < y; yy++) {
                 skyLight = yy >= Level::COMPRESSED_CHUNK_SECTION_HEIGHT
-                               ? upperSkyLight
-                               : lowerSkyLight;
+                               ? upperSkyLight.get()
+                               : lowerSkyLight.get();
                 skyLight->set(x, (yy % Level::COMPRESSED_CHUNK_SECTION_HEIGHT),
                               z, 0);
             }
@@ -795,13 +782,13 @@ void LevelChunk::recalcHeight(int x, int yStart, int z) {
         int br = 15;
 
         SparseLightStorage* skyLight =
-            y >= Level::COMPRESSED_CHUNK_SECTION_HEIGHT ? upperSkyLight
-                                                        : lowerSkyLight;
+            y >= Level::COMPRESSED_CHUNK_SECTION_HEIGHT ? upperSkyLight.get()
+                                                        : lowerSkyLight.get();
         while (y > 0 && br > 0) {
             y--;
             skyLight = y >= Level::COMPRESSED_CHUNK_SECTION_HEIGHT
-                           ? upperSkyLight
-                           : lowerSkyLight;
+                           ? upperSkyLight.get()
+                           : lowerSkyLight.get();
             int block = Tile::lightBlock[getTile(x, y, z)];
             if (block == 0) block = 1;
             br -= block;
@@ -1035,14 +1022,14 @@ int LevelChunk::getBrightness(LightLayer::variety layer, int x, int y, int z) {
             return 0;
         }
         SparseLightStorage* skyLight =
-            y >= Level::COMPRESSED_CHUNK_SECTION_HEIGHT ? upperSkyLight
-                                                        : lowerSkyLight;
+            y >= Level::COMPRESSED_CHUNK_SECTION_HEIGHT ? upperSkyLight.get()
+                                                        : lowerSkyLight.get();
         if (!skyLight) return 0;
         return skyLight->get(x, y % Level::COMPRESSED_CHUNK_SECTION_HEIGHT, z);
     } else if (layer == LightLayer::Block) {
         SparseLightStorage* blockLight =
-            y >= Level::COMPRESSED_CHUNK_SECTION_HEIGHT ? upperBlockLight
-                                                        : lowerBlockLight;
+            y >= Level::COMPRESSED_CHUNK_SECTION_HEIGHT ? upperBlockLight.get()
+                                                        : lowerBlockLight.get();
         if (!blockLight) return 0;
         return blockLight->get(x, y % Level::COMPRESSED_CHUNK_SECTION_HEIGHT,
                                z);
@@ -1056,11 +1043,11 @@ void LevelChunk::getNeighbourBrightnesses(int* brightnesses,
                                           int y, int z) {
     SparseLightStorage* light;
     if (layer == LightLayer::Sky)
-        light = y >= Level::COMPRESSED_CHUNK_SECTION_HEIGHT ? upperSkyLight
-                                                            : lowerSkyLight;
+        light = y >= Level::COMPRESSED_CHUNK_SECTION_HEIGHT ? upperSkyLight.get()
+                                                            : lowerSkyLight.get();
     else
-        light = y >= Level::COMPRESSED_CHUNK_SECTION_HEIGHT ? upperBlockLight
-                                                            : lowerBlockLight;
+        light = y >= Level::COMPRESSED_CHUNK_SECTION_HEIGHT ? upperBlockLight.get()
+                                                            : lowerBlockLight.get();
 
     if (light) {
         brightnesses[0] =
@@ -1075,24 +1062,24 @@ void LevelChunk::getNeighbourBrightnesses(int* brightnesses,
 
     if (layer == LightLayer::Sky)
         light = (y - 1) >= Level::COMPRESSED_CHUNK_SECTION_HEIGHT
-                    ? upperSkyLight
-                    : lowerSkyLight;
+                    ? upperSkyLight.get()
+                    : lowerSkyLight.get();
     else
         light = (y - 1) >= Level::COMPRESSED_CHUNK_SECTION_HEIGHT
-                    ? upperBlockLight
-                    : lowerBlockLight;
+                    ? upperBlockLight.get()
+                    : lowerBlockLight.get();
     if (light)
         brightnesses[2] =
             light->get(x, (y - 1) % Level::COMPRESSED_CHUNK_SECTION_HEIGHT, z);
 
     if (layer == LightLayer::Sky)
         light = (y + 1) >= Level::COMPRESSED_CHUNK_SECTION_HEIGHT
-                    ? upperSkyLight
-                    : lowerSkyLight;
+                    ? upperSkyLight.get()
+                    : lowerSkyLight.get();
     else
         light = (y + 1) >= Level::COMPRESSED_CHUNK_SECTION_HEIGHT
-                    ? upperBlockLight
-                    : lowerBlockLight;
+                    ? upperBlockLight.get()
+                    : lowerBlockLight.get();
     if (light)
         brightnesses[3] =
             light->get(x, (y + 1) % Level::COMPRESSED_CHUNK_SECTION_HEIGHT, z);
@@ -1104,15 +1091,15 @@ void LevelChunk::setBrightness(LightLayer::variety layer, int x, int y, int z,
     if (layer == LightLayer::Sky) {
         if (!level->dimension->hasCeiling) {
             SparseLightStorage* skyLight =
-                y >= Level::COMPRESSED_CHUNK_SECTION_HEIGHT ? upperSkyLight
-                                                            : lowerSkyLight;
+                y >= Level::COMPRESSED_CHUNK_SECTION_HEIGHT ? upperSkyLight.get()
+                                                            : lowerSkyLight.get();
             skyLight->set(x, y % Level::COMPRESSED_CHUNK_SECTION_HEIGHT, z,
                           brightness);
         }
     } else if (layer == LightLayer::Block) {
         SparseLightStorage* blockLight =
-            y >= Level::COMPRESSED_CHUNK_SECTION_HEIGHT ? upperBlockLight
-                                                        : lowerBlockLight;
+            y >= Level::COMPRESSED_CHUNK_SECTION_HEIGHT ? upperBlockLight.get()
+                                                        : lowerBlockLight.get();
         blockLight->set(x, y % Level::COMPRESSED_CHUNK_SECTION_HEIGHT, z,
                         brightness);
     }
@@ -1120,8 +1107,8 @@ void LevelChunk::setBrightness(LightLayer::variety layer, int x, int y, int z,
 
 int LevelChunk::getRawBrightness(int x, int y, int z, int skyDampen) {
     SparseLightStorage* skyLight = y >= Level::COMPRESSED_CHUNK_SECTION_HEIGHT
-                                       ? upperSkyLight
-                                       : lowerSkyLight;
+                                       ? upperSkyLight.get()
+                                       : lowerSkyLight.get();
     int light =
         level->dimension->hasCeiling
             ? 0
@@ -1129,8 +1116,8 @@ int LevelChunk::getRawBrightness(int x, int y, int z, int skyDampen) {
     if (light > 0) touchedSky = true;
     light -= skyDampen;
     SparseLightStorage* blockLight = y >= Level::COMPRESSED_CHUNK_SECTION_HEIGHT
-                                         ? upperBlockLight
-                                         : lowerBlockLight;
+                                         ? upperBlockLight.get()
+                                         : lowerBlockLight.get();
     int block =
         blockLight->get(x, y % Level::COMPRESSED_CHUNK_SECTION_HEIGHT, z);
     if (block > light) light = block;
@@ -1752,13 +1739,8 @@ int LevelChunk::setBlocksAndData(std::vector<uint8_t>& data, int x0, int y0,
         lowerBlocks = new CompressedTileStorage(emptyByteArray, 0);
         GameRenderer::FinishedReassigning();
 
-        GameRenderer::AddForDelete(lowerSkyLight);
-        lowerSkyLight = new SparseLightStorage(true, false);
-        GameRenderer::FinishedReassigning();
-
-        GameRenderer::AddForDelete(lowerBlockLight);
-        lowerBlockLight = new SparseLightStorage(false, false);
-        GameRenderer::FinishedReassigning();
+        lowerSkyLight = std::make_unique<SparseLightStorage>(true, false);
+        lowerBlockLight = std::make_unique<SparseLightStorage>(false, false);
 
         GameRenderer::AddForDelete(lowerData);
         lowerData = new SparseDataStorage(false);
@@ -2117,9 +2099,9 @@ void LevelChunk::getBlockLightData(std::vector<uint8_t>& data) {
 // Set sky light data to data passed in input byte array of length 16384. This
 // data must be in original (java version) order if originalOrder set.
 void LevelChunk::setSkyLightData(std::vector<uint8_t>& data) {
-    if (lowerSkyLight == nullptr) lowerSkyLight = new SparseLightStorage(true);
+    if (lowerSkyLight == nullptr) lowerSkyLight = std::make_unique<SparseLightStorage>(true);
     if (upperSkyLight == nullptr)
-        upperSkyLight = new SparseLightStorage(true, true);
+        upperSkyLight = std::make_unique<SparseLightStorage>(true, true);
     lowerSkyLight->setData(data, 0);
     if (data.size() > Level::COMPRESSED_CHUNK_SECTION_TILES / 2)
         upperSkyLight->setData(data, Level::COMPRESSED_CHUNK_SECTION_TILES / 2);
@@ -2129,9 +2111,9 @@ void LevelChunk::setSkyLightData(std::vector<uint8_t>& data) {
 // data must be in original (java version) order if originalOrder set.
 void LevelChunk::setBlockLightData(std::vector<uint8_t>& data) {
     if (lowerBlockLight == nullptr)
-        lowerBlockLight = new SparseLightStorage(false);
+        lowerBlockLight = std::make_unique<SparseLightStorage>(false);
     if (upperBlockLight == nullptr)
-        upperBlockLight = new SparseLightStorage(false, true);
+        upperBlockLight = std::make_unique<SparseLightStorage>(false, true);
     lowerBlockLight->setData(data, 0);
     if (data.size() > Level::COMPRESSED_CHUNK_SECTION_TILES / 2)
         upperBlockLight->setData(data,
@@ -2240,18 +2222,18 @@ void LevelChunk::readCompressedDataData(DataInputStream* dis) {
 }
 
 void LevelChunk::readCompressedSkyLightData(DataInputStream* dis) {
-    if (lowerSkyLight == nullptr) lowerSkyLight = new SparseLightStorage(true);
+    if (lowerSkyLight == nullptr) lowerSkyLight = std::make_unique<SparseLightStorage>(true);
     if (upperSkyLight == nullptr)
-        upperSkyLight = new SparseLightStorage(true, true);
+        upperSkyLight = std::make_unique<SparseLightStorage>(true, true);
     lowerSkyLight->read(dis);
     upperSkyLight->read(dis);
 }
 
 void LevelChunk::readCompressedBlockLightData(DataInputStream* dis) {
     if (lowerBlockLight == nullptr)
-        lowerBlockLight = new SparseLightStorage(false);
+        lowerBlockLight = std::make_unique<SparseLightStorage>(false);
     if (upperBlockLight == nullptr)
-        upperBlockLight = new SparseLightStorage(false, true);
+        upperBlockLight = std::make_unique<SparseLightStorage>(false, true);
     lowerBlockLight->read(dis);
     upperBlockLight->read(dis);
 }

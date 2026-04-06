@@ -302,10 +302,10 @@ private:
     // 4J - actual storage for sky & block lights is now private with new
     // methods to be able to access it.
 
-    SparseLightStorage* lowerSkyLight;    // 0 - 127
-    SparseLightStorage* upperSkyLight;    // 128 - 255
-    SparseLightStorage* lowerBlockLight;  // 0 - 127
-    SparseLightStorage* upperBlockLight;  // 128 - 255
+    std::unique_ptr<SparseLightStorage> lowerSkyLight;    // 0 - 127
+    std::unique_ptr<SparseLightStorage> upperSkyLight;    // 128 - 255
+    std::unique_ptr<SparseLightStorage> lowerBlockLight;  // 0 - 127
+    std::unique_ptr<SparseLightStorage> upperBlockLight;  // 128 - 255
 
     bool hasGapsToCheck;
 
