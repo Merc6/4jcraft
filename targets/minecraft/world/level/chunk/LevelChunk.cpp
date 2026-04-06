@@ -125,7 +125,7 @@ void LevelChunk::init(Level* level, int x, int z) {
 LevelChunk::LevelChunk(Level* level, int x, int z)
     : ENTITY_BLOCKS_LENGTH(Level::maxBuildHeight / 16) {
     init(level, x, z);
-    lowerBlocks = new CompressedTileStorage();
+    lowerBlocks = std::make_shared<CompressedTileStorage>();
     lowerData = nullptr;
     lowerSkyLight = nullptr;
     lowerBlockLight = nullptr;
@@ -134,8 +134,8 @@ LevelChunk::LevelChunk(Level* level, int x, int z)
     if (Level::maxBuildHeight > Level::COMPRESSED_CHUNK_SECTION_HEIGHT) {
         // Create all these as empty, as we may not be loading any data into
         // them
-        upperBlocks = new CompressedTileStorage(true);
-        upperData = new SparseDataStorage(true);
+        upperBlocks = std::make_shared<CompressedTileStorage>(true);
+        upperData = std::make_shared<SparseDataStorage>(true);
         upperSkyLight = std::make_unique<SparseLightStorage>(true, true);
         upperBlockLight = std::make_unique<SparseLightStorage>(false, true);
     } else {
@@ -166,14 +166,14 @@ LevelChunk::LevelChunk(Level* level, std::vector<uint8_t>& blocks, int x, int z)
     bool createEmpty = blocks.empty();
 
     if (createEmpty) {
-        lowerBlocks = new CompressedTileStorage(true);
-        lowerData = new SparseDataStorage(true);
+        lowerBlocks = std::make_shared<CompressedTileStorage>(true);
+        lowerData = std::make_shared<SparseDataStorage>(true);
 
         lowerSkyLight = std::make_unique<SparseLightStorage>(true, true);
         lowerBlockLight = std::make_unique<SparseLightStorage>(false, true);
     } else {
-        lowerBlocks = new CompressedTileStorage(blocks, 0);
-        lowerData = new SparseDataStorage();
+        lowerBlocks = std::make_shared<CompressedTileStorage>(blocks, 0);
+        lowerData = std::make_shared<SparseDataStorage>();
 
         // 4J - changed to new SpareLightStorage class for these
         lowerSkyLight = std::make_unique<SparseLightStorage>(true);
@@ -184,11 +184,11 @@ LevelChunk::LevelChunk(Level* level, std::vector<uint8_t>& blocks, int x, int z)
 
     if (Level::maxBuildHeight > Level::COMPRESSED_CHUNK_SECTION_HEIGHT) {
         if (blocks.size() > Level::COMPRESSED_CHUNK_SECTION_TILES)
-            upperBlocks = new CompressedTileStorage(
+            upperBlocks = std::make_shared<CompressedTileStorage>(
                 blocks, Level::COMPRESSED_CHUNK_SECTION_TILES);
         else
-            upperBlocks = new CompressedTileStorage(true);
-        upperData = new SparseDataStorage(true);
+            upperBlocks = std::make_shared<CompressedTileStorage>(true);
+        upperData = std::make_shared<SparseDataStorage>(true);
         upperSkyLight = std::make_unique<SparseLightStorage>(true, true);
         upperBlockLight = std::make_unique<SparseLightStorage>(false, true);
     } else {
@@ -281,15 +281,15 @@ void LevelChunk::stopSharingTilesAndData() {
 
         // Changed to used compressed storage - these CTORs make deep copies of
         // the storage passed as a parameter
-        lowerBlocks = new CompressedTileStorage(lowerBlocks);
+        lowerBlocks = std::make_shared<CompressedTileStorage>(lowerBlocks.get());
 
         // Changed to use new sparse data storage - this CTOR makes a deep copy
         // of the storage passed as a parameter
-        lowerData = new SparseDataStorage(lowerData);
+        lowerData = std::make_shared<SparseDataStorage>(lowerData.get());
 
         if (Level::maxBuildHeight > Level::COMPRESSED_CHUNK_SECTION_HEIGHT) {
-            upperBlocks = new CompressedTileStorage(upperBlocks);
-            upperData = new SparseDataStorage(upperData);
+            upperBlocks = std::make_shared<CompressedTileStorage>(upperBlocks.get());
+            upperData = std::make_shared<SparseDataStorage>(upperData.get());
         } else {
             upperBlocks = nullptr;
             upperData = nullptr;
@@ -350,6 +350,8 @@ void LevelChunk::startSharingTilesAndData(int forceMs) {
 #if defined(SHARING_ENABLED)
     {
         std::lock_guard<std::recursive_mutex> lock(m_csSharing);
+        assert(lowerBlocks != nullptr);
+        assert(lowerBlocks.use_count() > 0);
         if (sharingTilesAndData) {
             return;
         }
@@ -378,9 +380,9 @@ void LevelChunk::startSharingTilesAndData(int forceMs) {
         if (forceMs == 0) {
             // Normal behaviour - just check that the data matches, and don't
             // start sharing data if it doesn't (yet)
-            if (!lowerBlocks->isSameAs(lc->lowerBlocks) ||
+            if (!lowerBlocks->isSameAs(lc->lowerBlocks.get()) ||
                 (upperBlocks && lc->upperBlocks &&
-                 !upperBlocks->isSameAs(lc->upperBlocks))) {
+                 !upperBlocks->isSameAs(lc->upperBlocks.get()))) {
                 return;
             }
         } else {
@@ -395,22 +397,12 @@ void LevelChunk::startSharingTilesAndData(int forceMs) {
         // Note - data that was shared isn't directly deleted here, as it might
         // still be in use in the game render update thread. Let that thread
         // delete it when it is safe to do so instead.
-        GameRenderer::AddForDelete(lowerBlocks);
         lowerBlocks = lc->lowerBlocks;
-        GameRenderer::FinishedReassigning();
-
-        GameRenderer::AddForDelete(lowerData);
         lowerData = lc->lowerData;
-        GameRenderer::FinishedReassigning();
 
         if (Level::maxBuildHeight > Level::COMPRESSED_CHUNK_SECTION_HEIGHT) {
-            GameRenderer::AddForDelete(upperBlocks);
             upperBlocks = lc->upperBlocks;
-            GameRenderer::FinishedReassigning();
-
-            GameRenderer::AddForDelete(upperData);
             upperData = lc->upperData;
-            GameRenderer::FinishedReassigning();
         }
 
         sharingTilesAndData = true;
@@ -419,16 +411,7 @@ void LevelChunk::startSharingTilesAndData(int forceMs) {
 }
 
 LevelChunk::~LevelChunk() {
-#if defined(SHARING_ENABLED)
-    if (!sharingTilesAndData)
-#endif
-    {
-        delete lowerData;
-        delete lowerBlocks;
-        if (upperData) delete upperData;
-        if (upperBlocks) delete upperBlocks;
-    }
-
+    assert(!sharingTilesAndData or lowerBlocks.use_count() > 1);
     for (int i = 0; i < ENTITY_BLOCKS_LENGTH; ++i) delete entityBlocks[i];
     delete[] entityBlocks;
 
@@ -468,8 +451,8 @@ void LevelChunk::recalcHeightmapOnly() {
             //            int p = x << level->depthBitsPlusFour | z <<
             //            level->depthBits;		// 4J - removed
             CompressedTileStorage* blocks =
-                (y - 1) >= Level::COMPRESSED_CHUNK_SECTION_HEIGHT ? upperBlocks
-                                                                  : lowerBlocks;
+                (y - 1) >= Level::COMPRESSED_CHUNK_SECTION_HEIGHT ? upperBlocks.get()
+                                                                  : lowerBlocks.get();
             while (
                 y > 0 &&
                 Tile::lightBlock[blocks->get(
@@ -482,8 +465,8 @@ void LevelChunk::recalcHeightmapOnly() {
             {
                 y--;
                 blocks = (y - 1) >= Level::COMPRESSED_CHUNK_SECTION_HEIGHT
-                             ? upperBlocks
-                             : lowerBlocks;
+                             ? upperBlocks.get()
+                             : lowerBlocks.get();
             }
             heightmap.set((unsigned)z << 4 | x, (uint8_t)y);
             if (y < min) min = y;
@@ -504,8 +487,8 @@ void LevelChunk::recalcHeightmap() {
             //            level->depthBits;			// 4J - removed
 
             CompressedTileStorage* blocks =
-                (y - 1) >= Level::COMPRESSED_CHUNK_SECTION_HEIGHT ? upperBlocks
-                                                                  : lowerBlocks;
+                (y - 1) >= Level::COMPRESSED_CHUNK_SECTION_HEIGHT ? upperBlocks.get()
+                                                                  : lowerBlocks.get();
             while (
                 y > 0 &&
                 Tile::lightBlock[blocks->get(
@@ -518,8 +501,8 @@ void LevelChunk::recalcHeightmap() {
             {
                 y--;
                 blocks = (y - 1) >= Level::COMPRESSED_CHUNK_SECTION_HEIGHT
-                             ? upperBlocks
-                             : lowerBlocks;
+                             ? upperBlocks.get()
+                             : lowerBlocks.get();
             }
             heightmap.set((unsigned)z << 4 | x, (uint8_t)y);
             if (y < min) min = y;
@@ -529,8 +512,8 @@ void LevelChunk::recalcHeightmap() {
                 int br = Level::MAX_BRIGHTNESS;
                 int yy = Level::maxBuildHeight - 1;
                 CompressedTileStorage* blocks =
-                    yy >= Level::COMPRESSED_CHUNK_SECTION_HEIGHT ? upperBlocks
-                                                                 : lowerBlocks;
+                    yy >= Level::COMPRESSED_CHUNK_SECTION_HEIGHT ? upperBlocks.get()
+                                                                 : lowerBlocks.get();
                 SparseLightStorage* skyLight =
                     yy >= Level::COMPRESSED_CHUNK_SECTION_HEIGHT
                         ? upperSkyLight.get()
@@ -548,8 +531,8 @@ void LevelChunk::recalcHeightmap() {
                     }
                     yy--;
                     blocks = yy >= Level::COMPRESSED_CHUNK_SECTION_HEIGHT
-                                 ? upperBlocks
-                                 : lowerBlocks;
+                                 ? upperBlocks.get()
+                                 : lowerBlocks.get();
                     skyLight = yy >= Level::COMPRESSED_CHUNK_SECTION_HEIGHT
                                    ? upperSkyLight.get()
                                    : lowerSkyLight.get();
@@ -580,7 +563,7 @@ void LevelChunk::lightLava() {
             //// 4J - removed
             int ymax = getHeightmap(x, z);
             for (int y = 0; y < Level::COMPRESSED_CHUNK_SECTION_HEIGHT; y++) {
-                CompressedTileStorage* blocks = lowerBlocks;
+                CompressedTileStorage* blocks = lowerBlocks.get();
                 int emit = Tile::lightEmission[blocks->get(
                     x, y, z)];  // 4J - blocks->get() was blocks[p + y]
                 if (emit > 0) {
@@ -717,8 +700,8 @@ void LevelChunk::recalcHeight(int x, int yStart, int z) {
     //    // 4J - removed
 
     CompressedTileStorage* blocks =
-        (y - 1) >= Level::COMPRESSED_CHUNK_SECTION_HEIGHT ? upperBlocks
-                                                          : lowerBlocks;
+        (y - 1) >= Level::COMPRESSED_CHUNK_SECTION_HEIGHT ? upperBlocks.get()
+                                                          : lowerBlocks.get();
     while (
         y > 0 &&
         Tile::lightBlock
@@ -728,8 +711,8 @@ void LevelChunk::recalcHeight(int x, int yStart, int z) {
     {
         y--;
         blocks = (y - 1) >= Level::COMPRESSED_CHUNK_SECTION_HEIGHT
-                     ? upperBlocks
-                     : lowerBlocks;
+                     ? upperBlocks.get()
+                     : lowerBlocks.get();
     }
     if (y == yOld) return;
 
@@ -842,7 +825,7 @@ int LevelChunk::getTileLightBlock(int x, int y, int z) {
 
 int LevelChunk::getTile(int x, int y, int z) {
     CompressedTileStorage* blocks =
-        y >= Level::COMPRESSED_CHUNK_SECTION_HEIGHT ? upperBlocks : lowerBlocks;
+        y >= Level::COMPRESSED_CHUNK_SECTION_HEIGHT ? upperBlocks.get() : lowerBlocks.get();
     return blocks->get(x, y % Level::COMPRESSED_CHUNK_SECTION_HEIGHT, z);
 }
 
@@ -860,9 +843,9 @@ bool LevelChunk::setTileAndData(int x, int y, int z, int _tile, int _data) {
     int oldHeight = *heightmap.get(slot) & 0xff;
 
     CompressedTileStorage* blocks =
-        y >= Level::COMPRESSED_CHUNK_SECTION_HEIGHT ? upperBlocks : lowerBlocks;
+        y >= Level::COMPRESSED_CHUNK_SECTION_HEIGHT ? upperBlocks.get() : lowerBlocks.get();
     SparseDataStorage* data =
-        y >= Level::COMPRESSED_CHUNK_SECTION_HEIGHT ? upperData : lowerData;
+        y >= Level::COMPRESSED_CHUNK_SECTION_HEIGHT ? upperData.get() : lowerData.get();
     int old = blocks->get(x, y % Level::COMPRESSED_CHUNK_SECTION_HEIGHT, z);
     int oldData = data->get(x, y % Level::COMPRESSED_CHUNK_SECTION_HEIGHT, z);
     if (old == _tile && oldData == _data) {
@@ -987,14 +970,14 @@ bool LevelChunk::setTile(int x, int y, int z, int _tile) {
 
 int LevelChunk::getData(int x, int y, int z) {
     SparseDataStorage* data =
-        y >= Level::COMPRESSED_CHUNK_SECTION_HEIGHT ? upperData : lowerData;
+        y >= Level::COMPRESSED_CHUNK_SECTION_HEIGHT ? upperData.get() : lowerData.get();
     return data->get(x, y % Level::COMPRESSED_CHUNK_SECTION_HEIGHT, z);
 }
 
 bool LevelChunk::setData(int x, int y, int z, int val, int mask,
                          bool* maskedBitsChanged) {
     SparseDataStorage* data =
-        y >= Level::COMPRESSED_CHUNK_SECTION_HEIGHT ? upperData : lowerData;
+        y >= Level::COMPRESSED_CHUNK_SECTION_HEIGHT ? upperData.get() : lowerData.get();
     this->setUnsaved(true);
     int old = data->get(x, y % Level::COMPRESSED_CHUNK_SECTION_HEIGHT, z);
 
@@ -1734,17 +1717,11 @@ int LevelChunk::setBlocksAndData(std::vector<uint8_t>& data, int x0, int y0,
     // lower chunks as quite likely that the upper chunk doesn't have anything
     // in anyway.
     if (includeLighting) {
-        GameRenderer::AddForDelete(lowerBlocks);
         std::vector<uint8_t> emptyByteArray;
-        lowerBlocks = new CompressedTileStorage(emptyByteArray, 0);
-        GameRenderer::FinishedReassigning();
-
+        lowerBlocks = std::make_shared<CompressedTileStorage>(emptyByteArray, 0);
         lowerSkyLight = std::make_unique<SparseLightStorage>(true, false);
         lowerBlockLight = std::make_unique<SparseLightStorage>(false, false);
-
-        GameRenderer::AddForDelete(lowerData);
-        lowerData = new SparseDataStorage(false);
-        GameRenderer::FinishedReassigning();
+        lowerData = std::make_shared<SparseDataStorage>(false);
     }
 
     // 4J Stu - Added this because some "min" functions don't let us use our
@@ -2072,8 +2049,8 @@ void LevelChunk::getDataData(std::vector<uint8_t>& data) {
 // Set data to data passed in input byte array of length 16384. This data must
 // be in original (java version) order if originalOrder set.
 void LevelChunk::setDataData(std::vector<uint8_t>& data) {
-    if (lowerData == nullptr) lowerData = new SparseDataStorage();
-    if (upperData == nullptr) upperData = new SparseDataStorage(true);
+    if (lowerData == nullptr) lowerData = std::make_shared<SparseDataStorage>();
+    if (upperData == nullptr) upperData = std::make_shared<SparseDataStorage>(true);
     lowerData->setData(data, 0);
     if (data.size() > Level::COMPRESSED_CHUNK_SECTION_TILES / 2)
         upperData->setData(data, Level::COMPRESSED_CHUNK_SECTION_TILES / 2);
@@ -2159,14 +2136,14 @@ void LevelChunk::compressBlocks() {
         {
             std::lock_guard<std::recursive_mutex> lock(m_csSharing);
             if (sharingTilesAndData) {
-                blocksToCompressLower = lowerBlocks;
-                blocksToCompressUpper = upperBlocks;
+                blocksToCompressLower = lowerBlocks.get();
+                blocksToCompressUpper = upperBlocks.get();
             }
         }
     } else {
         // Not the host, simple case
-        blocksToCompressLower = lowerBlocks;
-        blocksToCompressUpper = upperBlocks;
+        blocksToCompressLower = lowerBlocks.get();
+        blocksToCompressUpper = upperBlocks.get();
     }
 
     // Attempt to do the actual compression
@@ -2215,8 +2192,8 @@ void LevelChunk::readCompressedBlockData(DataInputStream* dis) {
 }
 
 void LevelChunk::readCompressedDataData(DataInputStream* dis) {
-    if (lowerData == nullptr) lowerData = new SparseDataStorage();
-    if (upperData == nullptr) upperData = new SparseDataStorage(true);
+    if (lowerData == nullptr) lowerData = std::make_shared<SparseDataStorage>();
+    if (upperData == nullptr) upperData = std::make_shared<SparseDataStorage>(true);
     lowerData->read(dis);
     upperData->read(dis);
 }
@@ -2259,14 +2236,14 @@ void LevelChunk::compressData() {
         {
             std::lock_guard<std::recursive_mutex> lock(m_csSharing);
             if (sharingTilesAndData) {
-                dataToCompressLower = lowerData;
-                dataToCompressUpper = upperData;
+                dataToCompressLower = lowerData.get();
+                dataToCompressUpper = upperData.get();
             }
         }
     } else {
         // Not the host, simple case
-        dataToCompressLower = lowerData;
-        dataToCompressUpper = upperData;
+        dataToCompressLower = lowerData.get();
+        dataToCompressUpper = upperData.get();
     }
 
     // Attempt to do the actual compression

@@ -291,13 +291,13 @@ private:
 
     // 4J - actual storage for blocks is now private with public methods to
     // access it
-    CompressedTileStorage* lowerBlocks;  // 0 - 127
-    CompressedTileStorage* upperBlocks;  // 128 - 255
+    std::shared_ptr<CompressedTileStorage> lowerBlocks;  // 0 - 127
+    std::shared_ptr<CompressedTileStorage> upperBlocks;  // 128 - 255
 
     // 4J - actual storage for data is now private with public methods to access
     // it
-    SparseDataStorage* lowerData;  // 0 - 127
-    SparseDataStorage* upperData;  // 128 - 255
+    std::shared_ptr<SparseDataStorage> lowerData;  // 0 - 127
+    std::shared_ptr<SparseDataStorage> upperData;  // 128 - 255
 
     // 4J - actual storage for sky & block lights is now private with new
     // methods to be able to access it.
