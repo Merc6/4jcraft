@@ -1,0 +1,9 @@
+[package]
+name = "lce_stub"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+
+[lints]
+workspace = true
