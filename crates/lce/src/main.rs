@@ -1,5 +1,6 @@
 //! The entry-point for Rust-port of 4jcraft.
 
+use bevy::prelude::*;
 #[cfg(feature = "dev")]
 use bevy::{
     camera_controller::free_camera::{FreeCamera, FreeCameraPlugin},
@@ -8,12 +9,10 @@ use bevy::{
 #[cfg(feature = "dev")]
 use bevy_inspector_egui::{bevy_egui::EguiPlugin, quick::WorldInspectorPlugin};
 
-use bevy::prelude::*;
-
 fn main() -> AppExit {
     let mut app = App::new();
 
-    app.add_plugins(DefaultPlugins);
+    app.add_plugins((DefaultPlugins, lce_chunk::LceChunkPlugin));
 
     #[cfg(feature = "dev")]
     app.add_plugins((
